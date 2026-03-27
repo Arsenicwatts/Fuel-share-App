@@ -2,7 +2,7 @@ import React from 'react';
 import RideCard from '../components/RideCard';
 import { Car, Leaf, Users } from 'lucide-react';
 
-export default function Dashboard({ rides, totalCO2Saved, handleBookSeat }) {
+export default function Dashboard({ rides, user, totalCO2Saved, handleRequestSeat, handleRespondRequest, handleSendMessage, handleDeleteRide }) {
   return (
     <div>
       {/* Eco-Metrics Banner */}
@@ -36,13 +36,21 @@ export default function Dashboard({ rides, totalCO2Saved, handleBookSeat }) {
       {rides.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {rides.map(ride => (
-            <RideCard key={ride.ride_id} ride={ride} onBookSeat={() => handleBookSeat(ride.distance_km)} />
+            <RideCard
+              key={ride.ride_id}
+              ride={ride}
+              currentUser={user}
+              onRequestSeat={() => handleRequestSeat(ride.ride_id, user)}
+              onRespondRequest={(passenger_email, status) => handleRespondRequest(ride.ride_id, passenger_email, status, ride.distance_km)}
+              onSendMessage={(passenger_email, text) => handleSendMessage(ride.ride_id, passenger_email, user, text)}
+              onDelete={() => handleDeleteRide(ride.ride_id)}
+            />
           ))}
         </div>
       ) : (
         <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
           <Car size={48} className="mx-auto mb-4 text-slate-300" />
-          <p className="text-slate-500">No active rides found.</p>
+          <p className="text-slate-500 font-semibold text-lg">No ride are available currently.</p>
         </div>
       )}
     </div>
