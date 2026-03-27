@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MapPin, Clock, Car, ChevronRight } from 'lucide-react';
 
-export default function RideCard({ ride }) {
+export default function RideCard({ ride, onBookSeat }) {
+  const [isBooked, setIsBooked] = useState(false);
   const date = new Date(ride.start_time);
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 card-hover flex flex-col h-full">
+    <div className={`bg-white rounded-2xl p-6 shadow-sm border flex flex-col h-full ${isBooked ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-100 card-hover'}`}>
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-lg font-bold text-slate-900">{ride.driver_name}</h3>
@@ -49,9 +50,19 @@ export default function RideCard({ ride }) {
         </div>
       </div>
 
-      <button className="w-full btn-primary flex items-center justify-center gap-2 group">
-        Book Seat
-        <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+      <button
+        onClick={() => {
+          setIsBooked(true);
+          onBookSeat(ride.distance_km);
+        }}
+        disabled={isBooked}
+        className={`w-full flex items-center justify-center gap-2 group transition-all py-2.5 rounded-xl font-bold ${isBooked
+          ? 'bg-emerald-100 text-emerald-700 cursor-not-allowed'
+          : 'btn-primary'
+          }`}
+      >
+        {isBooked ? 'Seat Booked ✓' : 'Book Seat'}
+        {!isBooked && <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />}
       </button>
     </div>
   );
