@@ -12,44 +12,33 @@ export default function Login({ onLogin }) {
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); // clear previous errors
+    setError('');
 
-    // Load registered users from local storage
-    const usersList = JSON.parse(localStorage.getItem('fuelshare_users_list') || '[]');
+    try {
+      const endpoint = isSignup ? 'signup' : 'login';
+      const bodyData = isSignup
+        ? { name: formData.name, email: formData.email, password: formData.password }
+        : { email: formData.email, password: formData.password };
 
-    if (isSignup) {
-      // Prevent duplicate emails
-      if (usersList.some((u) => u.email === formData.email)) {
-        return setError("An account with this email already exists!");
+      const res = await fetch(`http://${window.location.hostname}/fuelshare-backend/api/api.php?action=${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bodyData)
+      });
+
+      const data = await res.json();
+
+      if (data.error) {
+        return setError(data.error);
       }
 
-      // Create new user profile
-      const newUser = {
-        id: Date.now(),
-        name: formData.name,
-        email: formData.email,
-        password: formData.password
-      };
-
-      // Save to registered list
-      localStorage.setItem('fuelshare_users_list', JSON.stringify([...usersList, newUser]));
-
-      // Auto login the new user
-      onLogin(newUser);
-    } else {
-      // Validate returning user credentials
-      const existingUser = usersList.find(
-        (u) => u.email === formData.email && u.password === formData.password
-      );
-
-      if (!existingUser) {
-        return setError("Invalid email or password. Are you sure you've registered?");
-      }
-
-      // Found the user, log them in!
-      onLogin(existingUser);
+      onLogin(data);
+    } catch (err) {
+      setError("Failed to connect to backend server. Ensure XAMPP is running!");
     }
   };
 

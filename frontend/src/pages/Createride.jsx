@@ -45,57 +45,39 @@ export default function CreateRide({ user, API_URL, onRideCreated }) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/calculate', {
+      const distance = parseFloat(formData.distance);
+      const mileage = parseFloat(formData.mileage);
+      const capacity = parseInt(formData.capacity, 10);
+      const costPerSeat = ((distance / mileage) * 96.72) / capacity;
+
+      const payload = {
+        distance,
+        mileage,
+        capacity,
+        model: formData.model || "Unknown",
+        driver_id: user.id,
+        start_location: originRef.current?.value || "Unknown",
+        end_location: destRef.current?.value || "Unknown",
+        start_time: formData.start_time || new Date().toISOString(),
+        cost_per_seat: costPerSeat
+      };
+
+      const response = await fetch(`${API_URL}?action=create_ride`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          distance: parseFloat(formData.distance),
-          mileage: parseFloat(formData.mileage),
-          model: formData.model || "Unknown",
-          capacity: parseInt(formData.capacity, 10)
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) throw new Error("Backend not responding");
 
       const data = await response.json();
+      if (data.error) throw new Error(data.error);
 
-      if (data.status === "success") {
-        const newRide = {
-          ride_id: Date.now(),
-          driver_name: user?.name || "Student Demo",
-          driver_email: user?.email,
-          available_seats: parseInt(formData.capacity, 10) || 4,
-          vehicle_model: formData.model || "Unknown Vehicle",
-          start_location: originRef.current?.value || "Unknown Location",
-          end_location: destRef.current?.value || "Unknown Location",
-          distance_km: parseFloat(formData.distance),
-          calculated_cost_per_seat: data.cost_per_seat || 0,
-          start_time: formData.start_time || new Date().toISOString()
-        };
-        onRideCreated(newRide);
-      } else {
-        console.error("Engine API error:", data);
-        alert("Calculation failed. Please ensure the Engine is healthy.");
-      }
+      // Successfully saved to API
+      onRideCreated();
     } catch (err) {
-      console.warn("Backend 5000 offline. Falling back to offline JS calculation:", err);
-      // Fallback robust math in case they are not running server.js
-      const costPerSeat = ((parseFloat(formData.distance) / parseFloat(formData.mileage)) * 96.72) / parseInt(formData.capacity, 10);
-
-      const newRide = {
-        ride_id: Date.now(),
-        driver_name: user?.name || "Student Demo",
-        driver_email: user?.email,
-        available_seats: parseInt(formData.capacity, 10) || 4,
-        vehicle_model: formData.model || "Unknown Vehicle",
-        start_location: originRef.current?.value || "Unknown Location",
-        end_location: destRef.current?.value || "Unknown Location",
-        distance_km: parseFloat(formData.distance),
-        calculated_cost_per_seat: costPerSeat || 0,
-        start_time: formData.start_time || new Date().toISOString()
-      };
-      onRideCreated(newRide);
+      console.error("API error:", err);
+      alert("Calculation failed: " + err.message);
     } finally {
       setLoading(false);
     }

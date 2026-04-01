@@ -13,17 +13,37 @@ export default function App() {
 
   const [page, setPage] = useState(user ? 'dashboard' : 'login');
 
-  const [rides, setRides] = useState(() => {
-    const savedRides = localStorage.getItem('fuelshare_rides');
-    if (savedRides) return JSON.parse(savedRides);
-
-    return [];
-  });
-
+  const [rides, setRides] = useState([]);
   const [totalCO2Saved, setTotalCO2Saved] = useState(() => {
     const savedCO2 = localStorage.getItem('fuelshare_co2');
     return savedCO2 ? parseFloat(savedCO2) : 0;
   });
+
+  const API_URL = `http://${window.location.hostname}/fuelshare-backend/api/api.php`;
+
+  const fetchRides = async () => {
+    try {
+      const res = await fetch(`${API_URL}?action=get_rides`);
+      const data = await res.json();
+      if (!data.error) setRides(data);
+    } catch (err) {
+      console.error("Failed to fetch rides:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      // Fetch immediately on load
+      fetchRides();
+
+      // Poll every 5 seconds to sync data across devices (Phone vs PC)
+      const intervalId = setInterval(() => {
+        fetchRides();
+      }, 5000);
+
+      return () => clearInterval(intervalId);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -34,74 +54,45 @@ export default function App() {
   }, [user]);
 
   useEffect(() => {
-    localStorage.setItem('fuelshare_rides', JSON.stringify(rides));
-  }, [rides]);
-
-  useEffect(() => {
     localStorage.setItem('fuelshare_co2', totalCO2Saved.toString());
   }, [totalCO2Saved]);
 
-  const handleRequestSeat = (ride_id, passenger) => {
-    // Add passenger to the requests queue with a pending status
-    setRides(prev => prev.map(ride =>
-      ride.ride_id === ride_id
-        ? {
-          ...ride,
-          requests: [...(ride.requests || []), { ...passenger, status: 'pending' }]
-        }
-        : ride
-    ));
+  const handleRequestSeat = async (ride_id, passenger) => {
+    await fetch(`${API_URL}?action=request_seat`, {
+      method: "POST", headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ride_id, passenger_id: passenger.id })
+    });
+    fetchRides();
   };
 
-  const handleRespondRequest = (ride_id, passenger_email, response_status, distance_km) => {
-    setRides(prev => prev.map(ride => {
-      if (ride.ride_id !== ride_id) return ride;
+  const handleRespondRequest = async (ride_id, passenger_email, response_status, distance_km) => {
+    await fetch(`${API_URL}?action=respond_request`, {
+      method: "POST", headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ride_id, passenger_email, response_status })
+    });
 
-      const updatedRequests = (ride.requests || []).map(req =>
-        req.email === passenger_email ? { ...req, status: response_status } : req
-      );
-
-      // If securely accepted, decrease seats and update CO2
-      let newSeats = ride.available_seats;
-      if (response_status === 'accepted') {
-        newSeats = Math.max(0, ride.available_seats - 1);
-        const savings = distance_km * 0.192;
-        setTotalCO2Saved(prevCO2 => prevCO2 + savings);
-      }
-
-      return { ...ride, requests: updatedRequests, available_seats: newSeats };
-    }));
+    if (response_status === 'accepted') {
+      const savings = distance_km * 0.192;
+      setTotalCO2Saved(prevCO2 => prevCO2 + savings);
+    }
+    fetchRides();
   };
 
-  const handleSendMessage = (ride_id, passenger_email, senderUser, text) => {
-    setRides(prev => prev.map(ride => {
-      if (ride.ride_id !== ride_id) return ride;
-
-      const updatedRequests = (ride.requests || []).map(req => {
-        if (req.email === passenger_email) {
-          return {
-            ...req,
-            chat: [...(req.chat || []), {
-              sender: senderUser.email,
-              senderName: senderUser.name,
-              text,
-              timestamp: new Date().toISOString()
-            }]
-          };
-        }
-        return req;
-      });
-
-      return { ...ride, requests: updatedRequests };
-    }));
+  const handleSendMessage = async (ride_id, passenger_email, senderUser, text) => {
+    await fetch(`${API_URL}?action=send_message`, {
+      method: "POST", headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ride_id, passenger_email, sender_id: senderUser.id, text })
+    });
+    fetchRides();
   };
 
-  const handleDeleteRide = (ride_id) => {
-    setRides(prev => prev.filter(ride => ride.ride_id !== ride_id));
+  const handleDeleteRide = async (ride_id) => {
+    await fetch(`${API_URL}?action=delete_ride`, {
+      method: "POST", headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ride_id })
+    });
+    fetchRides();
   };
-
-  // Configuration for your backend
-  const API_URL = "http://localhost/fuelshare-backend/api/api.php";
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -113,11 +104,9 @@ export default function App() {
     setPage('login');
   };
 
-  const handleRideCreated = (newRide) => {
-    if (newRide) {
-      setRides([newRide, ...rides]);
-    }
+  const handleRideCreated = () => {
     alert('Ride published successfully!');
+    fetchRides();
     setPage('dashboard');
   };
 
