@@ -1,21 +1,68 @@
 @import "tailwindcss";
 
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@layer utilities {
+  .app-background {
+    background-color: #f8fafc;
+    background-image: radial-gradient(at 0% 0%, hsla(160, 100%, 74%, 0.1) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, hsla(180, 100%, 74%, 0.15) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
 @layer components {
   .btn-primary {
-    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition-colors;
+    background-color: var(--color-emerald-600);
+    color: white;
+    font-weight: 700;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+    border-radius: 0.75rem;
+    transition: all 0.15s ease-in-out;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-emerald-700);
   }
 
   .input-field {
-    @apply w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all font-medium;
+    width: 100%;
+    background-color: var(--color-slate-50);
+    border: 1px solid var(--color-slate-200);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    color: var(--color-slate-700);
+    outline: none;
+    font-weight: 500;
+    transition: all 0.15s ease-in-out;
+  }
+
+  .input-field:focus {
+    border-color: var(--color-emerald-500);
+    box-shadow: 0 0 0 2px var(--color-emerald-200);
   }
 
   .card-hover {
-    @apply hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer;
+    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-0.25rem);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
   }
 }
 
 body {
-  @apply bg-slate-50 text-slate-800 antialiased;
+  background-color: var(--color-slate-50);
+  color: var(--color-slate-800);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Custom Datetime Input Overrides */
@@ -32,6 +79,41 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
 
 input[type="datetime-local"] {
   font-family: inherit;
-  color: #0f172a;
-  background-color: transparent;
+  border-radius: 9999px;
+  background-color: transparent !important;
+}
+
+/* Custom DatePicker Premium Overrides */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+
+.react-datepicker {
+  font-family: inherit !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  overflow: hidden;
+}
+
+.react-datepicker__header {
+  background-color: #f8fafc !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  padding-top: 1rem !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected,
+.react-datepicker__time-list-item--selected {
+  background-color: #059669 !important;
+  color: white !important;
+  border-radius: 9999px !important;
+}
+
+.react-datepicker__time-container {
+  border-left: 1px solid #e2e8f0 !important;
+}
+
+.react-datepicker__navigation {
+  top: 1rem !important;
 }

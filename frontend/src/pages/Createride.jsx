@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Settings, MapPin, Navigation, Map } from 'lucide-react';
 import { useJsApiLoader, Autocomplete } from '@react-google-maps/api';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const libraries = ['places'];
 
@@ -12,7 +14,7 @@ export default function CreateRide({ user, API_URL, onRideCreated }) {
 
   const [formData, setFormData] = useState({
     distance: '',
-    start_time: '',
+    start_time: new Date(),
     model: '',
     mileage: '',
     capacity: ''
@@ -58,7 +60,7 @@ export default function CreateRide({ user, API_URL, onRideCreated }) {
         driver_id: user.id,
         start_location: originRef.current?.value || "Unknown",
         end_location: destRef.current?.value || "Unknown",
-        start_time: formData.start_time || new Date().toISOString(),
+        start_time: formData.start_time ? formData.start_time.toISOString() : new Date().toISOString(),
         cost_per_seat: costPerSeat
       };
 
@@ -123,7 +125,18 @@ export default function CreateRide({ user, API_URL, onRideCreated }) {
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Departure Time</label>
-              <input required type="datetime-local" name="start_time" className="input-field" onChange={handleChange} />
+              <DatePicker
+                selected={formData.start_time}
+                onChange={(date) => setFormData({ ...formData, start_time: date })}
+                showTimeSelect
+                timeFormat="h:mm aa"
+                timeIntervals={15}
+                timeCaption="Time"
+                dateFormat="MMMM d, yyyy h:mm aa"
+                className="input-field w-full cursor-pointer hover:bg-slate-50 transition-colors"
+                wrapperClassName="w-full block"
+                minDate={new Date()}
+              />
             </div>
           </div>
 

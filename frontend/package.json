@@ -13,9 +13,12 @@
     "@react-google-maps/api": "^2.20.8",
     "@tailwindcss/postcss": "^4.2.2",
     "cors": "^2.8.6",
+    "date-fns": "^4.1.0",
     "express": "^5.2.1",
     "lucide-react": "^0.563.0",
+    "nodemailer": "^8.0.4",
     "react": "^19.2.0",
+    "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {

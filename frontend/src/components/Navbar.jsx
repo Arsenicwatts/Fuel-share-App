@@ -30,7 +30,12 @@ export default function Navbar({ user, setPage, onLogout }) {
               </div>
             </>
           ) : (
-            <button className="btn-primary">Login</button>
+            <button
+              onClick={() => document.getElementById('auth-form')?.scrollIntoView({ behavior: 'smooth' })}
+              className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5 active:scale-95"
+            >
+              Login
+            </button>
           )}
         </div>
       </div>

@@ -111,7 +111,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
+    <div className="min-h-[100dvh] app-background font-sans relative text-slate-800">
       <Navbar
         user={user}
         setPage={setPage}
@@ -134,7 +134,7 @@ export default function App() {
             )}
 
             {page === 'profile' && (
-              <Profile user={user} onUpdateUser={setUser} />
+              <Profile user={user} onUpdateUser={setUser} API_URL={API_URL} onLogout={handleLogout} />
             )}
           </>
         )}
