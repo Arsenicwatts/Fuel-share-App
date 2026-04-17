@@ -76,7 +76,7 @@ export const sendVerificationEmail = async (email, otp) => {
                         FuelShare - Campus-Exclusive Peer-to-Peer Ride-Sharing
                     </p>
                     <p style="color: #6e7979; font-size: 10px; margin: 0 0 10px;">
-                        &copy; 2024 FuelShare Technologies Inc.
+                        &copy; 2026 FuelShare Technologies Inc.
                     </p>
                     <div style="font-size: 10px;">
                         <a href="#" style="color: #6e7979; text-decoration: underline; margin-right: 15px;">Privacy Policy</a>

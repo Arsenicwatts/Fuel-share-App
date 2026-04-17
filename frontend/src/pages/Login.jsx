@@ -108,8 +108,8 @@ export default function Login({ onLogin }) {
     <div className="flex flex-col items-center justify-start min-h-[100dvh] pb-24">
 
       {/* Introduction Hero Section */}
-      <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center mt-12 md:mt-24 mb-16 px-4">
-        <span className="inline-block py-1 px-4 rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold tracking-wide mb-6 border border-emerald-200 shadow-sm">
+      <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center mt-12 md:mt-24 mb-16 px-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <span className="inline-block py-1 px-4 rounded-full bg-emerald-100/50 backdrop-blur-md text-emerald-800 text-sm font-bold tracking-wide mb-6 border border-emerald-200/50 shadow-sm">
           Campus Commuting, Reimagined
         </span>
         <h1 className="text-4xl md:text-6xl font-extrabold text-slate-800 tracking-tight leading-tight mb-6">
@@ -129,20 +129,20 @@ export default function Login({ onLogin }) {
             { icon: Shield, title: "100% Verified", desc: "Access restricted strictly to university emails." },
             { icon: Leaf, title: "Eco-Conscious", desc: "Track the CO₂ you save with every shared trip." }
           ].map((feat, i) => (
-            <div key={i} className="bg-white/60 backdrop-blur-md rounded-2xl p-6 border border-white shadow-sm flex flex-col items-center text-center hover:-translate-y-1 transition-transform">
-              <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mb-4 text-emerald-600">
+            <div key={i} className="bg-white/30 backdrop-blur-xl rounded-2xl p-6 border border-white/50 shadow-lg shadow-teal-500/5 flex flex-col items-center text-center hover:-translate-y-1 transition-transform">
+              <div className="w-12 h-12 rounded-full bg-emerald-100/80 backdrop-blur-sm flex items-center justify-center mb-4 text-emerald-600 border border-white/60">
                 <feat.icon size={24} />
               </div>
               <h3 className="font-bold text-slate-800 mb-2">{feat.title}</h3>
-              <p className="text-sm text-slate-500 leading-relaxed">{feat.desc}</p>
+              <p className="text-sm text-slate-600 leading-relaxed">{feat.desc}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Auth Card */}
-      <div id="auth-form" className="w-full max-w-md px-4 scroll-mt-24">
-        <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden border border-white/60 relative">
+      <div id="auth-form" className="w-full max-w-md px-4 scroll-mt-24 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both">
+        <div className="bg-white/20 backdrop-blur-2xl rounded-[2rem] shadow-2xl shadow-teal-500/10 overflow-hidden border border-white/40 relative">
 
           <div className="bg-gradient-to-br from-emerald-500/90 to-teal-600/90 p-8 text-white relative transition-all duration-300">
             {!showOtp ? (

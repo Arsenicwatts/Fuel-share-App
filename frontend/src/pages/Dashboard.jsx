@@ -2,7 +2,7 @@ import React from 'react';
 import RideCard from '../components/RideCard';
 import { Car, Leaf, Users } from 'lucide-react';
 
-export default function Dashboard({ rides, user, totalCO2Saved, handleRequestSeat, handleRespondRequest, handleSendMessage, handleDeleteRide }) {
+export default function Dashboard({ rides, user, totalCO2Saved, handleRequestSeat, handleRespondRequest, handleSendMessage, handleDeleteRide, handleCancelRequest }) {
   return (
     <div>
       {/* Eco-Metrics Banner */}
@@ -14,15 +14,15 @@ export default function Dashboard({ rides, user, totalCO2Saved, handleRequestSea
             <p className="text-emerald-100 font-medium">Every shared ride takes a car off the road.</p>
           </div>
           <div className="flex gap-4">
-            <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 text-center border border-white/20 min-w-[140px]">
-              <Leaf className="mx-auto mb-2 text-emerald-200" size={28} />
+            <div className="bg-white/20 backdrop-blur-xl rounded-2xl p-4 text-center border border-white/40 shadow-lg min-w-[140px]">
+              <Leaf className="mx-auto mb-2 text-emerald-100" size={28} />
               <p className="text-4xl font-bold">{totalCO2Saved.toFixed(1)}</p>
-              <p className="text-sm font-semibold text-emerald-100 mt-1">kg CO₂ Saved</p>
+              <p className="text-sm font-semibold text-emerald-50 mt-1">kg CO₂ Saved</p>
             </div>
-            <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 text-center border border-white/20 min-w-[140px]">
-              <Users className="mx-auto mb-2 text-emerald-200" size={28} />
+            <div className="bg-white/20 backdrop-blur-xl rounded-2xl p-4 text-center border border-white/40 shadow-lg min-w-[140px]">
+              <Users className="mx-auto mb-2 text-emerald-100" size={28} />
               <p className="text-4xl font-bold">{rides.length}</p>
-              <p className="text-sm font-semibold text-emerald-100 mt-1">Active Rides</p>
+              <p className="text-sm font-semibold text-emerald-50 mt-1">Active Rides</p>
             </div>
           </div>
         </div>
@@ -44,6 +44,7 @@ export default function Dashboard({ rides, user, totalCO2Saved, handleRequestSea
               onRespondRequest={(passenger_email, status) => handleRespondRequest(ride.ride_id, passenger_email, status, ride.distance_km)}
               onSendMessage={(passenger_email, text) => handleSendMessage(ride.ride_id, passenger_email, user, text)}
               onDelete={() => handleDeleteRide(ride.ride_id)}
+              onCancelRequest={() => handleCancelRequest(ride.ride_id)}
             />
           ))}
         </div>

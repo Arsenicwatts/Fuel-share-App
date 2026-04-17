@@ -1,9 +1,9 @@
 import React from 'react';
 import { Fuel, LogOut } from 'lucide-react';
 
-export default function Navbar({ user, setPage, onLogout }) {
+export default function Navbar({ user, page, setPage, onLogout }) {
   return (
-    <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <nav className="bg-white/30 backdrop-blur-md border-b border-white/40 sticky top-0 z-50 shadow-sm">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <div
           onClick={() => setPage('dashboard')}
@@ -16,9 +16,10 @@ export default function Navbar({ user, setPage, onLogout }) {
         <div className="flex items-center gap-6">
           {user ? (
             <>
-              <button onClick={() => setPage('dashboard')} className="text-slate-600 hover:text-emerald-600 font-medium">Find Rides</button>
-              <button onClick={() => setPage('create')} className="text-slate-600 hover:text-emerald-600 font-medium">Post Ride</button>
-              <button onClick={() => setPage('profile')} className="text-slate-600 hover:text-emerald-600 font-medium">Profile</button>
+              <button onClick={() => setPage('dashboard')} className={`font-medium transition-colors ${page === 'dashboard' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}>Find Rides</button>
+              <button onClick={() => setPage('create')} className={`font-medium transition-colors ${page === 'create' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}>Post Ride</button>
+              <button onClick={() => setPage('my_bookings')} className={`font-medium transition-colors ${page === 'my_bookings' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}>My Rides</button>
+              <button onClick={() => setPage('profile')} className={`font-medium transition-colors ${page === 'profile' ? 'text-emerald-600' : 'text-slate-600 hover:text-emerald-600'}`}>Profile</button>
               <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
                 <div className="text-right hidden md:block">
                   <p className="text-sm font-bold text-slate-800">{user.name}</p>

@@ -88,8 +88,8 @@ export default function CreateRide({ user, API_URL, onRideCreated }) {
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+    <div className="max-w-2xl mx-auto animate-in fade-in duration-500">
+      <div className="bg-white/20 backdrop-blur-xl rounded-2xl shadow-lg border border-white/40 p-8">
         <div className="mb-8 border-b border-slate-100 pb-6">
           <h2 className="text-2xl font-bold text-slate-900">Post a New Ride</h2>
           <p className="text-slate-500">Details will be processed by our Python Engine.</p>

@@ -103,8 +103,8 @@ export default function Profile({ user, onUpdateUser, API_URL, onLogout }) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto pb-20">
-      <div className="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+    <div className="max-w-2xl mx-auto pb-20 animate-in fade-in duration-500">
+      <div className="bg-white/20 backdrop-blur-xl rounded-3xl p-8 shadow-lg border border-white/40">
         <div className="flex items-center gap-4 mb-8">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center font-bold text-2xl">
             {user?.name?.charAt(0).toUpperCase()}
