@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
+    "server": "node server.js",
+    "start": "concurrently -k -n \"VITE,NODE\" -c \"cyan,green\" \"npm run dev\" \"npm run server\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -14,6 +16,7 @@
     "@tailwindcss/postcss": "^4.2.2",
     "cors": "^2.8.6",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "lucide-react": "^0.563.0",
     "nodemailer": "^8.0.4",
@@ -28,6 +31,7 @@
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.24",
     "babel-plugin-react-compiler": "^1.0.0",
+    "concurrently": "^10.0.3",
     "eslint": "^9.39.1",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",

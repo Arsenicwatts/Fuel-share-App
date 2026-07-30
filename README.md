@@ -1,48 +1,157 @@
-# FuelShare 🚗💨
+# FuelShare
 
-**FuelShare** is a campus-exclusive, peer-to-peer ride-sharing web application. It is designed to solve the financial and logistical challenges of daily student commutes by matching vehicle owners who have empty seats with peers heading in the same direction. Unlike commercial ride-hailing apps, FuelShare operates on a strictly non-profit, cost-sharing model powered by a dynamic algorithmic pricing engine.
+A campus-exclusive, peer-to-peer ride-sharing web application. FuelShare matches vehicle owners with empty seats to students heading in the same direction, splitting the exact fuel cost automatically.
 
-## 1. The Problem Space
-College students and campus commuters typically face three major transportation hurdles:
-- **Financial Strain:** Commercial cabs (like Ola or Uber) utilize surge pricing, making them too expensive for daily student commutes.
-- **The "Splitting" Awkwardness:** While informal carpooling happens, manually calculating how much petrol was burned and awkwardly asking friends for small amounts of money creates social friction.
-- **Safety Concerns:** Public carpooling apps expose young students to unverified strangers, which is a major safety deterrent.
-- **Resource Inefficiency:** Campus parking lots are filled with single-occupancy vehicles, contributing to traffic congestion and a higher carbon footprint.
+## Problem
 
-## 2. The FuelShare Solution
-FuelShare bridges the gap between expensive cabs and unreliable public transport by creating a secure micro-economy. By restricting access exclusively to users with verified university email addresses, it ensures a 100% safe, student-only environment. The platform automates the entire process of finding rides and mathematically calculates the exact cost of the trip, removing the need for manual negotiation.
+- Commercial ride apps use surge pricing — too expensive for daily student commutes
+- Splitting fuel costs manually is awkward and imprecise
+- Public carpooling apps expose students to unverified strangers
 
-## 3. Core Innovation: The Dynamic Fair-Pricing Engine
-The standout feature of FuelShare is its automated pricing algorithm. It guarantees that the driver makes no profit, and the passenger pays only their exact fair share of the fuel consumed.
+## How It Works
 
-**How the logic engine works:**
-- **Data Scraping:** A Python microservice runs in the background, scraping real-time daily fuel prices (Petrol/Diesel) from reliable financial websites.
-- **The Formula:**
-  - `Total Fuel Needed = Trip Distance (km) ÷ Vehicle Mileage (km/l)`
-  - `Total Trip Cost = Total Fuel Needed × Live Fuel Price (₹)`
-  - `Fair Cost Per Seat = Total Trip Cost ÷ Total Vehicle Capacity`
-- **Result:** The ride is published to the dashboard with a fixed, mathematically justified price tag.
+1. **Sign up** with your university email (OTP verified)
+2. **Post a ride** — enter route, vehicle details, departure time. The system calculates the exact cost per seat using: `(Distance ÷ Mileage) × Fuel Price ÷ Capacity`
+3. **Request a seat** — browse available rides, request to join, chat with the driver once accepted
 
-## 4. Key Platform Features
-- **Dual-Role Profiles:** A single user can act as both a Driver (offering rides) and a Passenger (booking rides) depending on their needs for the day.
-- **Vehicle Garage:** Drivers can register multiple vehicles in their profile, saving the specific mileage, fuel type, and seating capacity for accurate calculations.
-- **Interactive Dashboard:** A clean, modern UI where passengers can view available "Open" rides, see the driver's details, the vehicle model, departure time, and the exact cost.
-- **Automated Matchmaking:** The system pairs available capacity with commuter demand in real-time.
+The driver makes zero profit. Every passenger pays their mathematically fair share.
 
-## 5. Technology Stack & Architecture
-FuelShare is built using a modern, decoupled Full-Stack architecture:
-- **Frontend (UI):** Built with ReactJS (Vite environment) and styled with Tailwind CSS v4. Ensures a fast, responsive, Single Page Application (SPA) experience.
-- **Backend (API & Routing):** Powered by Vanilla PHP following RESTful architectural principles. Handles user authentication, session management, and securely processes requests using PDO.
-- **Logic Microservice:** A Python 3 script utilizes `requests` and `BeautifulSoup4` for web scraping. PHP triggers this script via shell execution to perform mathematical calculations.
-- **Database:** A normalized MySQL database structured in 3NF to manage Users, Vehicles, Rides, and Bookings efficiently.
+## Tech Stack
 
-## 6. The User Workflow
-1. **Onboarding:** A user registers using their college email.
-2. **Driver Action:** A driver enters their start point, destination, and departure time. The system pulls their vehicle's mileage, hits the Python engine for today's fuel price, and publishes the ride.
-3. **Passenger Action:** A passenger logs in, browses the dashboard, finds a route that matches their commute, and clicks "Book Seat" at the transparently displayed price.
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, Vite 7, Tailwind CSS v4 |
+| Backend API | PHP (PDO/MySQL) on Apache |
+| Mail / OTP | Node.js + Express + Nodemailer |
+| Pricing Engine | Python 3 (BeautifulSoup web scraping) |
+| Database | MySQL (normalized, 3NF) |
 
-## 7. Future Scope and Impact
-As an academic project, FuelShare proves the viability of algorithmic cost-sharing. Future iterations could include:
-- Integration with Google Maps API for automated distance calculation.
-- In-app UPI payment gateways for seamless financial clearing.
-- An eco-metric dashboard showing users how much CO₂ they have saved by carpooling.
+## Architecture
+
+```
+Browser (localhost:3000)
+  ├── React SPA (Vite dev server)
+  │
+  ├── PHP Backend (localhost:80/fuelshare-backend)
+  │   └── MySQL (localhost:3306)
+  │
+  └── Node.js Server (localhost:5000)
+      ├── POST /api/send-otp     → Sends OTP email via Gmail SMTP
+      ├── POST /api/verify-otp   → Validates OTP server-side
+      └── POST /api/calculate    → Bridges to Python fuel engine
+```
+
+## Setup
+
+### Prerequisites
+
+- [XAMPP](https://www.apachefriends.org/) (Apache + MySQL)
+- [Node.js](https://nodejs.org/) (v18+)
+- [Python 3](https://www.python.org/) (optional, for the pricing engine)
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/your-username/Fuel-share-App.git
+cd Fuel-share-App/frontend
+npm install
+```
+
+### 2. Database
+
+Start MySQL from XAMPP, then import the schema:
+
+```bash
+# Via command line
+mysql -u root < database/schema.sql
+
+# Or via phpMyAdmin: Import → select database/schema.sql
+```
+
+### 3. PHP Backend
+
+Make the backend accessible to Apache:
+
+```bash
+# Windows (run as admin)
+mklink /J "C:\xampp\htdocs\fuelshare-backend" "path\to\Fuel-share-App\backend"
+```
+
+### 4. Environment
+
+Create `frontend/.env`:
+
+```env
+SMTP_EMAIL=your-email@gmail.com
+SMTP_PASSWORD=your-app-password
+```
+
+### 5. Run
+
+Start Apache and MySQL from XAMPP Control Panel, then:
+
+```bash
+cd frontend
+npm start
+```
+
+This launches both the Vite dev server (port 3000) and the Node mail server (port 5000) concurrently.
+
+Open **http://localhost:3000**.
+
+## API Endpoints
+
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `?action=signup` | Create account (bcrypt hashed) |
+| POST | `?action=login` | Authenticate user |
+
+### Rides
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `?action=get_rides` | List all open rides with requests & chat |
+| POST | `?action=create_ride` | Publish a new ride |
+| POST | `?action=delete_ride` | Soft-delete a ride |
+
+### Seat Requests
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `?action=request_seat` | Request a seat on a ride |
+| POST | `?action=cancel_request` | Cancel a seat request |
+| POST | `?action=respond_request` | Accept or decline a request |
+
+### Messaging
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `?action=send_message` | Send a chat message |
+
+### Profile
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `?action=update_profile` | Update name, phone, bio |
+| POST | `?action=delete_account` | Permanently delete account (cascades) |
+| GET | `?action=my_bookings` | Get user's rides (driver + passenger) |
+| GET | `?action=user_vehicles` | Get user's last registered vehicle |
+
+### Node.js Server (port 5000)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/send-otp` | Generate and email OTP |
+| POST | `/api/verify-otp` | Validate submitted OTP |
+| POST | `/api/calculate` | Run Python pricing engine |
+
+## Database Schema
+
+5 tables: `users`, `vehicles`, `rides`, `ride_requests`, `messages`. All foreign keys use `ON DELETE CASCADE`. A MySQL Event Scheduler auto-cleans completed/deleted rides after 10 minutes.
+
+## Security
+
+- Passwords hashed with **bcrypt** (`password_hash` / `password_verify`)
+- OTP generated and verified **server-side** (never exposed to browser)
+- SMTP credentials stored in `.env` (excluded from Git)
+- Prepared statements (PDO) for all database queries
+
+## License
+
+Academic project. Not licensed for commercial use.

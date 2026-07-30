@@ -7,6 +7,8 @@ CREATE TABLE users (
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) DEFAULT NULL,
+    bio TEXT DEFAULT NULL,
     is_driver BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -45,7 +47,7 @@ CREATE TABLE ride_requests (
     request_id INT AUTO_INCREMENT PRIMARY KEY,
     ride_id INT NOT NULL,
     passenger_id INT NOT NULL,
-    status ENUM('pending', 'accepted', 'rejected') DEFAULT 'pending',
+    status ENUM('pending', 'accepted', 'declined') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (ride_id) REFERENCES rides(ride_id) ON DELETE CASCADE,
     FOREIGN KEY (passenger_id) REFERENCES users(user_id) ON DELETE CASCADE,

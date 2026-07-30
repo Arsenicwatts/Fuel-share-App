@@ -50,10 +50,10 @@ export default function App() {
       // Fetch immediately on load
       fetchRides();
 
-      // Poll every 5 seconds to sync data across devices (Phone vs PC)
+      // Poll every 20 seconds to sync data across devices (Phone vs PC)
       const intervalId = setInterval(() => {
         fetchRides();
-      }, 5000);
+      }, 20000);
 
       return () => clearInterval(intervalId);
     }

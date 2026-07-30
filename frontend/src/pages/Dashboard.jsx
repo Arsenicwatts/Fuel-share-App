@@ -51,7 +51,7 @@ export default function Dashboard({ rides, user, totalCO2Saved, handleRequestSea
       ) : (
         <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
           <Car size={48} className="mx-auto mb-4 text-slate-300" />
-          <p className="text-slate-500 font-semibold text-lg">No ride are available currently.</p>
+          <p className="text-slate-500 font-semibold text-lg">No rides are available currently.</p>
         </div>
       )}
     </div>

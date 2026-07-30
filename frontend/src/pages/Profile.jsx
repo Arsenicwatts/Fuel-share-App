@@ -15,7 +15,6 @@ export default function Profile({ user, onUpdateUser, API_URL, onLogout }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteStep, setDeleteStep] = useState('reason'); // 'reason', 'verify'
   const [selectedReasons, setSelectedReasons] = useState([]);
-  const [generatedOtp, setGeneratedOtp] = useState('');
   const [userOtp, setUserOtp] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -59,18 +58,16 @@ export default function Profile({ user, onUpdateUser, API_URL, onLogout }) {
     }
   };
 
+  // Server-side OTP: ask the server to generate and send the code
   const initiateDeleteOTP = async () => {
     setDeleteLoading(true);
     setDeleteError('');
     try {
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      setGeneratedOtp(otp);
-
       const nodeApi = `http://${window.location.hostname}:5000/api/send-otp`;
       const res = await fetch(nodeApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, otp })
+        body: JSON.stringify({ email: user.email })
       });
 
       const data = await res.json();
@@ -83,12 +80,26 @@ export default function Profile({ user, onUpdateUser, API_URL, onLogout }) {
     setDeleteLoading(false);
   };
 
+  // Server-side OTP: verify the code on the server, then delete
   const finalizeDeletion = async () => {
-    if (userOtp !== generatedOtp) {
-      return setDeleteError("Invalid verification code.");
-    }
     setDeleteLoading(true);
+    setDeleteError('');
+
     try {
+      // Verify OTP server-side
+      const verifyRes = await fetch(`http://${window.location.hostname}:5000/api/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, otp: userOtp })
+      });
+      const verifyData = await verifyRes.json();
+
+      if (verifyData.status === 'error') {
+        setDeleteLoading(false);
+        return setDeleteError(verifyData.message);
+      }
+
+      // OTP verified — proceed with deletion
       await fetch(`${API_URL}?action=delete_account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

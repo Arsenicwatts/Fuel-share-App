@@ -34,6 +34,18 @@ if ($method === 'POST' && $action === 'signup') {
         exit();
     }
 
+    // Validate email format
+    if (!filter_var($data->email, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(["error" => "Invalid email format."]);
+        exit();
+    }
+
+    // Validate password length
+    if (strlen($data->password) < 6) {
+        echo json_encode(["error" => "Password must be at least 6 characters."]);
+        exit();
+    }
+
     $stmt = $conn->prepare("SELECT user_id FROM users WHERE email = ?");
     $stmt->execute([$data->email]);
     if ($stmt->fetch()) {
@@ -41,8 +53,11 @@ if ($method === 'POST' && $action === 'signup') {
         exit();
     }
 
+    // Hash the password securely using bcrypt
+    $hashedPassword = password_hash($data->password, PASSWORD_BCRYPT);
+
     $stmt = $conn->prepare("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)");
-    $stmt->execute([$data->name, $data->email, $data->password]);
+    $stmt->execute([$data->name, $data->email, $hashedPassword]);
     $user_id = $conn->lastInsertId();
 
     echo json_encode(["id" => $user_id, "name" => $data->name, "email" => $data->email]);
@@ -51,11 +66,18 @@ if ($method === 'POST' && $action === 'signup') {
 
 if ($method === 'POST' && $action === 'login') {
     $data = json_decode(file_get_contents("php://input"));
-    $stmt = $conn->prepare("SELECT user_id as id, name, email, phone, bio FROM users WHERE email = ? AND password_hash = ?");
-    $stmt->execute([$data->email, $data->password]);
+    if (!$data || !isset($data->email, $data->password)) {
+        echo json_encode(["error" => "Invalid payload"]);
+        exit();
+    }
+
+    $stmt = $conn->prepare("SELECT user_id as id, name, email, phone, bio, password_hash FROM users WHERE email = ?");
+    $stmt->execute([$data->email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($user) {
+    if ($user && password_verify($data->password, $user['password_hash'])) {
+        // Remove password_hash from the response
+        unset($user['password_hash']);
         echo json_encode($user);
     } else {
         echo json_encode(["error" => "Invalid email or password."]);
@@ -66,6 +88,7 @@ if ($method === 'POST' && $action === 'login') {
 // ======================== RIDES ========================
 
 if ($method === 'GET' && $action === 'get_rides') {
+    // Step 1: Fetch all open rides in a single query
     $stmt = $conn->prepare("
         SELECT r.*, u.name as driver_name, u.email as driver_email, v.model as vehicle_model, v.capacity as available_seats
         FROM rides r 
@@ -77,29 +100,52 @@ if ($method === 'GET' && $action === 'get_rides') {
     $stmt->execute();
     $rides = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach ($rides as &$ride) {
-        $reqStmt = $conn->prepare("
-            SELECT req.request_id, req.status, u.email, u.name 
-            FROM ride_requests req
-            JOIN users u ON req.passenger_id = u.user_id
-            WHERE req.ride_id = ?
+    if (empty($rides)) {
+        echo json_encode([]);
+        exit();
+    }
+
+    // Step 2: Batch-fetch all requests for all open rides
+    $rideIds = array_column($rides, 'ride_id');
+    $placeholders = implode(',', array_fill(0, count($rideIds), '?'));
+
+    $reqStmt = $conn->prepare("
+        SELECT req.request_id, req.ride_id, req.status, u.email, u.name 
+        FROM ride_requests req
+        JOIN users u ON req.passenger_id = u.user_id
+        WHERE req.ride_id IN ($placeholders)
+    ");
+    $reqStmt->execute($rideIds);
+    $allRequests = $reqStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Step 3: Batch-fetch all messages for all requests
+    $requestIds = array_column($allRequests, 'request_id');
+    $allMessages = [];
+    if (!empty($requestIds)) {
+        $msgPlaceholders = implode(',', array_fill(0, count($requestIds), '?'));
+        $chatStmt = $conn->prepare("
+            SELECT m.request_id, m.text, m.created_at as timestamp, u.email as sender, u.name as senderName
+            FROM messages m
+            JOIN users u ON m.sender_id = u.user_id
+            WHERE m.request_id IN ($msgPlaceholders)
+            ORDER BY m.created_at ASC
         ");
-        $reqStmt->execute([$ride['ride_id']]);
-        $requests = $reqStmt->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach ($requests as &$req) {
-            $chatStmt = $conn->prepare("
-                SELECT m.text, m.created_at as timestamp, u.email as sender, u.name as senderName
-                FROM messages m
-                JOIN users u ON m.sender_id = u.user_id
-                WHERE m.request_id = ?
-                ORDER BY m.created_at ASC
-            ");
-            $chatStmt->execute([$req['request_id']]);
-            $req['chat'] = $chatStmt->fetchAll(PDO::FETCH_ASSOC);
+        $chatStmt->execute($requestIds);
+        foreach ($chatStmt->fetchAll(PDO::FETCH_ASSOC) as $msg) {
+            $allMessages[$msg['request_id']][] = $msg;
         }
-        $ride['requests'] = $requests;
+    }
 
+    // Step 4: Assemble the data in-memory
+    $requestsByRide = [];
+    foreach ($allRequests as &$req) {
+        $req['chat'] = $allMessages[$req['request_id']] ?? [];
+        $requestsByRide[$req['ride_id']][] = $req;
+    }
+
+    foreach ($rides as &$ride) {
+        $requests = $requestsByRide[$ride['ride_id']] ?? [];
+        $ride['requests'] = $requests;
         $accepted = count(array_filter($requests, fn($r) => $r['status'] === 'accepted'));
         $ride['available_seats'] = max(0, $ride['available_seats'] - $accepted);
     }
@@ -111,6 +157,29 @@ if ($method === 'GET' && $action === 'get_rides') {
 if ($method === 'POST' && $action === 'create_ride') {
     $data = json_decode(file_get_contents("php://input"));
 
+    // Input validation
+    if (!$data || !isset($data->driver_id, $data->start_location, $data->end_location, $data->distance, $data->start_time, $data->cost_per_seat)) {
+        echo json_encode(["error" => "Missing required fields."]);
+        exit();
+    }
+
+    $distance = floatval($data->distance);
+    $mileage = floatval($data->mileage ?? 15.0);
+    $capacity = intval($data->capacity ?? 4);
+
+    if ($distance <= 0) {
+        echo json_encode(["error" => "Distance must be greater than 0."]);
+        exit();
+    }
+    if ($mileage <= 0) {
+        echo json_encode(["error" => "Mileage must be greater than 0."]);
+        exit();
+    }
+    if ($capacity <= 0) {
+        echo json_encode(["error" => "Capacity must be greater than 0."]);
+        exit();
+    }
+
     $stmt = $conn->prepare("SELECT vehicle_id FROM vehicles WHERE owner_id = ? AND model = ?");
     $stmt->execute([$data->driver_id, $data->model]);
     $vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -119,7 +188,7 @@ if ($method === 'POST' && $action === 'create_ride') {
         $vehicle_id = $vehicle['vehicle_id'];
     } else {
         $stmt = $conn->prepare("INSERT INTO vehicles (owner_id, model, mileage, capacity) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$data->driver_id, $data->model, $data->mileage, $data->capacity]);
+        $stmt->execute([$data->driver_id, $data->model, $mileage, $capacity]);
         $vehicle_id = $conn->lastInsertId();
     }
 
@@ -131,7 +200,7 @@ if ($method === 'POST' && $action === 'create_ride') {
         $vehicle_id,
         $data->start_location,
         $data->end_location,
-        $data->distance,
+        $distance,
         $data->start_time,
         96.72,
         $data->cost_per_seat
@@ -146,6 +215,10 @@ if ($method === 'POST' && $action === 'create_ride') {
 
 if ($method === 'POST' && $action === 'request_seat') {
     $data = json_decode(file_get_contents("php://input"));
+    if (!$data || !isset($data->ride_id, $data->passenger_id)) {
+        echo json_encode(["error" => "Missing ride_id or passenger_id."]);
+        exit();
+    }
     $stmt = $conn->prepare("INSERT IGNORE INTO ride_requests (ride_id, passenger_id) VALUES (?, ?)");
     $stmt->execute([$data->ride_id, $data->passenger_id]);
     echo json_encode(["success" => true]);
@@ -154,6 +227,10 @@ if ($method === 'POST' && $action === 'request_seat') {
 
 if ($method === 'POST' && $action === 'cancel_request') {
     $data = json_decode(file_get_contents("php://input"));
+    if (!$data || !isset($data->ride_id, $data->passenger_id)) {
+        echo json_encode(["error" => "Missing ride_id or passenger_id."]);
+        exit();
+    }
     $stmt = $conn->prepare("DELETE FROM ride_requests WHERE ride_id = ? AND passenger_id = ?");
     $stmt->execute([$data->ride_id, $data->passenger_id]);
     echo json_encode(["success" => true, "deleted" => $stmt->rowCount()]);
@@ -162,6 +239,18 @@ if ($method === 'POST' && $action === 'cancel_request') {
 
 if ($method === 'POST' && $action === 'respond_request') {
     $data = json_decode(file_get_contents("php://input"));
+    if (!$data || !isset($data->ride_id, $data->passenger_email, $data->response_status)) {
+        echo json_encode(["error" => "Missing required fields."]);
+        exit();
+    }
+
+    // Validate status value
+    $validStatuses = ['accepted', 'declined'];
+    if (!in_array($data->response_status, $validStatuses)) {
+        echo json_encode(["error" => "Invalid status. Must be 'accepted' or 'declined'."]);
+        exit();
+    }
+
     $stmt = $conn->prepare("
         UPDATE ride_requests req 
         JOIN users u ON req.passenger_id = u.user_id 
@@ -177,6 +266,11 @@ if ($method === 'POST' && $action === 'respond_request') {
 
 if ($method === 'POST' && $action === 'send_message') {
     $data = json_decode(file_get_contents("php://input"));
+    if (!$data || !isset($data->ride_id, $data->passenger_email, $data->sender_id, $data->text)) {
+        echo json_encode(["error" => "Missing required fields."]);
+        exit();
+    }
+
     $reqStmt = $conn->prepare("
         SELECT req.request_id 
         FROM ride_requests req
@@ -200,6 +294,10 @@ if ($method === 'POST' && $action === 'send_message') {
 
 if ($method === 'POST' && $action === 'delete_ride') {
     $data = json_decode(file_get_contents("php://input"));
+    if (!$data || !isset($data->ride_id)) {
+        echo json_encode(["error" => "Missing ride_id."]);
+        exit();
+    }
     $stmt = $conn->prepare("UPDATE rides SET status = 'Deleted' WHERE ride_id = ?");
     $stmt->execute([$data->ride_id]);
     echo json_encode(["success" => true]);
@@ -307,13 +405,7 @@ if ($method === 'POST' && $action === 'delete_account') {
         exit();
     }
 
-    // Delete in order: messages -> ride_requests -> rides -> vehicles -> user
-    $conn->prepare("DELETE m FROM messages m JOIN ride_requests req ON m.request_id = req.request_id WHERE req.passenger_id = ?")->execute([$data->id]);
-    $conn->prepare("DELETE m FROM messages m JOIN ride_requests req ON m.request_id = req.request_id JOIN rides r ON req.ride_id = r.ride_id WHERE r.driver_id = ?")->execute([$data->id]);
-    $conn->prepare("DELETE FROM ride_requests WHERE passenger_id = ?")->execute([$data->id]);
-    $conn->prepare("DELETE req FROM ride_requests req JOIN rides r ON req.ride_id = r.ride_id WHERE r.driver_id = ?")->execute([$data->id]);
-    $conn->prepare("DELETE FROM rides WHERE driver_id = ?")->execute([$data->id]);
-    $conn->prepare("DELETE FROM vehicles WHERE owner_id = ?")->execute([$data->id]);
+    // ON DELETE CASCADE handles all related records automatically
     $conn->prepare("DELETE FROM users WHERE user_id = ?")->execute([$data->id]);
 
     echo json_encode(["success" => true]);

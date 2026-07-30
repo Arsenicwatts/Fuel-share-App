@@ -8,7 +8,6 @@ export default function Login({ onLogin }) {
 
   // OTP Verification States
   const [showOtp, setShowOtp] = useState(false);
-  const [generatedOtp, setGeneratedOtp] = useState('');
   const [userOtp, setUserOtp] = useState('');
 
   const [formData, setFormData] = useState({
@@ -19,28 +18,24 @@ export default function Login({ onLogin }) {
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  // 1. Initial Signup Button Click (Sends Email)
+  // 1. Initial Signup Button Click — Tells the server to generate and send OTP
   const initiateSignup = async () => {
     setIsLoading(true);
     setError('');
 
-    // Generate secure 6 digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(otp);
-
     try {
-      // Connect to the Node Express server running on port 5000 for mailing
+      // Server generates the OTP and emails it — we never see the code
       const res = await fetch(`http://${window.location.hostname}:5000/api/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, otp })
+        body: JSON.stringify({ email: formData.email })
       });
       const data = await res.json();
 
       if (data.status === 'error') {
         setError(data.message);
       } else {
-        // Mail sent successfully, switch UI state
+        // Mail sent successfully, switch UI to OTP input
         setShowOtp(true);
       }
     } catch (err) {
@@ -60,15 +55,29 @@ export default function Login({ onLogin }) {
       return initiateSignup();
     }
 
-    // If User is signing up and the OTP input is shown, verify the code first
+    // If User is signing up and the OTP input is shown, verify the code server-side
     if (isSignup && showOtp) {
-      if (userOtp !== generatedOtp) {
-        return setError("Invalid verification code. Please check your email and try again.");
+      setIsLoading(true);
+      try {
+        const verifyRes = await fetch(`http://${window.location.hostname}:5000/api/verify-otp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: formData.email, otp: userOtp })
+        });
+        const verifyData = await verifyRes.json();
+
+        if (verifyData.status === 'error') {
+          setIsLoading(false);
+          return setError(verifyData.message);
+        }
+      } catch (err) {
+        setIsLoading(false);
+        return setError("Failed to verify OTP. Ensure the server is running.");
       }
     }
 
     // Standard PHP verification/record insertion flow
-    setIsLoading(true);
+    if (!isLoading) setIsLoading(true);
     try {
       const endpoint = isSignup ? 'signup' : 'login';
       const bodyData = isSignup
