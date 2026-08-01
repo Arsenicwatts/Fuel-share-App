@@ -1,4 +1,7 @@
+@import "leaflet/dist/leaflet.css";
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   html {
@@ -32,19 +35,35 @@
 
   .input-field {
     width: 100%;
-    background-color: var(--color-slate-50);
-    border: 1px solid var(--color-slate-200);
+    background-color: #ffffff;
+    border: 1px solid var(--color-slate-300);
     border-radius: 0.75rem;
     padding: 0.75rem 1rem;
-    color: var(--color-slate-700);
+    color: var(--color-slate-900);
     outline: none;
-    font-weight: 500;
+    font-weight: 600;
     transition: all 0.15s ease-in-out;
   }
 
   .input-field:focus {
+    border-color: var(--color-emerald-600);
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.25);
+  }
+
+  /* Dark mode input overrides */
+  .dark .input-field {
+    background-color: var(--color-slate-800);
+    border-color: var(--color-slate-600);
+    color: var(--color-slate-200);
+  }
+
+  .dark .input-field:focus {
     border-color: var(--color-emerald-500);
-    box-shadow: 0 0 0 2px var(--color-emerald-200);
+    box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.3);
+  }
+
+  .dark .input-field::placeholder {
+    color: var(--color-slate-500);
   }
 
   .card-hover {
@@ -56,6 +75,10 @@
     transform: translateY(-0.25rem);
     box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
   }
+
+  .dark .card-hover:hover {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+  }
 }
 
 body {
@@ -65,16 +88,45 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.dark body {
+  background-color: var(--color-slate-950);
+  color: var(--color-slate-100);
+}
+
+/* Leaflet Map Tile Fixes for Tailwind CSS v4 */
+.leaflet-container {
+  font-family: inherit !important;
+  width: 100%;
+  height: 100%;
+}
+
+.leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+  width: 256px !important;
+  height: 256px !important;
+}
+
 /* Custom Datetime Input Overrides */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
   cursor: pointer;
   filter: invert(0.4) sepia(1) saturate(3) hue-rotate(120deg);
-  transform: scale(1.4);
-  transition: all 0.2s ease;
+  transform: scale(1.2);
+  transition: transform 0.2s ease;
 }
 
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
-  transform: scale(1.6);
+  transform: scale(1.35);
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
+.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8) sepia(1) saturate(3) hue-rotate(120deg);
 }
 
 input[type="datetime-local"] {
@@ -116,4 +168,80 @@ input[type="datetime-local"] {
 
 .react-datepicker__navigation {
   top: 1rem !important;
+}
+
+/* Dark mode DatePicker overrides */
+.dark .react-datepicker {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+.dark .react-datepicker__header {
+  background-color: #0f172a !important;
+  border-bottom-color: #334155 !important;
+}
+
+.dark .react-datepicker__current-month,
+.dark .react-datepicker__day-name,
+.dark .react-datepicker__day,
+.dark .react-datepicker-time__header {
+  color: #e2e8f0 !important;
+}
+
+.dark .react-datepicker__day:hover {
+  background-color: #334155 !important;
+}
+
+.dark .react-datepicker__time-list-item {
+  color: #e2e8f0 !important;
+}
+
+.dark .react-datepicker__time-list-item:hover {
+  background-color: #334155 !important;
+}
+
+.dark .react-datepicker__time-container {
+  border-left-color: #334155 !important;
+}
+
+/* Leaflet Map Overrides */
+.leaflet-popup-content-wrapper {
+  border-radius: 1rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid #e2e8f0;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px !important;
+  font-family: inherit !important;
+}
+
+.leaflet-popup-tip {
+  box-shadow: none !important;
+}
+
+.leaflet-container {
+  font-family: inherit !important;
+}
+
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.route-dot {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Skeleton shimmer animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-pulse {
+  animation: shimmer 1.5s ease-in-out infinite;
 }

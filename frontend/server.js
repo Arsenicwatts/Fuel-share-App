@@ -84,17 +84,45 @@ app.post('/api/verify-otp', (req, res) => {
   res.json({ status: "success", message: "OTP verified successfully." });
 });
 
+// In-memory cache for live fuel prices { city -> { price, timestamp } }
+const fuelPriceCache = new Map();
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+// ======================== LIVE FUEL PRICE API ========================
+app.get('/api/fuel-price', (req, res) => {
+  const location = req.query.location || req.query.city || 'vadodara';
+
+  const scriptPath = path.join(__dirname, '..', 'backend', 'scripts', 'fuel_engine.py');
+  const safeLoc = location.replace(/"/g, '\\"');
+  const cmd = `python "${scriptPath}" --location "${safeLoc}" --distance 10 --capacity 4`;
+
+  exec(cmd, (error, stdout) => {
+    if (error || !stdout) {
+      return res.json({ status: "fallback", city: "Vadodara", price: 94.28, source: "State Benchmark" });
+    }
+    try {
+      const jsonStr = stdout.substring(stdout.indexOf('{'));
+      const data = JSON.parse(jsonStr);
+      const price = data.live_fuel_price || 94.28;
+      const city = data.city || "Vadodara";
+      const source = data.source || "DriveSpark Live";
+      res.json({ status: "success", city, price, source });
+    } catch (e) {
+      res.json({ status: "fallback", city: "Vadodara", price: 94.28, source: "State Benchmark" });
+    }
+  });
+});
+
 // ======================== PYTHON ENGINE BRIDGE ========================
 // API Endpoint to bridge the Frontend to the Python Intelligence Engine
 app.post('/api/calculate', (req, res) => {
-  const { distance, mileage, model, capacity } = req.body;
+  const { distance = 10, mileage = 0, model = '', capacity = 4, city = 'vadodara' } = req.body;
 
-  // Auto-resolve path to the python script
   const scriptPath = path.join(__dirname, '..', 'backend', 'scripts', 'fuel_engine.py');
-
-  // Call Python directly
   const safeModel = model ? model.replace(/"/g, '\\"') : "Unknown";
-  const cmd = `python "${scriptPath}" --distance ${distance} --mileage ${mileage} --model "${safeModel}" --capacity ${capacity}`;
+  const safeCity = city ? city.replace(/"/g, '\\"') : "vadodara";
+
+  const cmd = `python "${scriptPath}" --distance ${distance} --mileage ${mileage} --model "${safeModel}" --capacity ${capacity} --city "${safeCity}"`;
 
   console.log(`🚀 Executing Fuel Engine: ${cmd}`);
 
@@ -104,7 +132,6 @@ app.post('/api/calculate', (req, res) => {
       return res.status(500).json({ status: "error", message: stderr || error.message });
     }
     try {
-      // Find JSON start bracket specifically (ignores standard system stdout warnings)
       const jsonStr = stdout.substring(stdout.indexOf('{'));
       const data = JSON.parse(jsonStr);
       console.log("✅ Engine Result:", data);

@@ -1,157 +1,146 @@
-# FuelShare
+# FuelShare 🚗⚡
 
-A campus-exclusive, peer-to-peer ride-sharing web application. FuelShare matches vehicle owners with empty seats to students heading in the same direction, splitting the exact fuel cost automatically.
+A campus-exclusive, peer-to-peer ride-sharing web application. FuelShare matches vehicle owners with empty seats to students heading in the same direction, splitting exact real-time fuel costs automatically.
 
-## Problem
+---
 
-- Commercial ride apps use surge pricing — too expensive for daily student commutes
-- Splitting fuel costs manually is awkward and imprecise
-- Public carpooling apps expose students to unverified strangers
+## 🌟 Key Features
 
-## How It Works
+- 🔐 **Verified University Auth**: Email OTP verification (Nodemailer + Gmail SMTP) ensures campus security.
+- ⛽ **Real-Time Web Scraper Engine**: Dynamic Python/Node scraper fetches live city petrol rates via DriveSpark, dynamically adjusting ride pricing based on exact route city locations.
+- 📍 **100% Universal Location Search & Pinning**: Multi-source geocoding (Photon + OpenStreetMap Nominatim) supporting any campus, transit hub, custom address write-in, or interactive Leaflet map pin dropping.
+- 🔖 **User-Centric Custom Saved Places**: Per-account saved locations (*Home, Office, College, Gym, etc.*) with custom nicknames, 1-click quick selection, and localStorage isolation.
+- 🗺️ **Compact Mini Route Maps**: Sleek Leaflet mini-map route previews on ride cards and interactive full-modal map pickers.
+- 💬 **Peer-to-Peer Ride Chat**: Real-time in-app messaging between drivers and accepted passengers.
+- 📊 **Live Cost Split Calculator**: Mathematical cost sharing formula: `(Distance ÷ Mileage) × Live City Fuel Price ÷ Seat Capacity`.
 
-1. **Sign up** with your university email (OTP verified)
-2. **Post a ride** — enter route, vehicle details, departure time. The system calculates the exact cost per seat using: `(Distance ÷ Mileage) × Fuel Price ÷ Capacity`
-3. **Request a seat** — browse available rides, request to join, chat with the driver once accepted
+---
 
-The driver makes zero profit. Every passenger pays their mathematically fair share.
-
-## Tech Stack
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19, Vite 7, Tailwind CSS v4 |
-| Backend API | PHP (PDO/MySQL) on Apache |
-| Mail / OTP | Node.js + Express + Nodemailer |
-| Pricing Engine | Python 3 (BeautifulSoup web scraping) |
-| Database | MySQL (normalized, 3NF) |
+| **Frontend** | React 19, Vite 7, Tailwind CSS v4, Lucide React, Leaflet Maps |
+| **Backend API** | PHP 8 (PDO / MySQL) on Apache (XAMPP) |
+| **Mail / OTP Server** | Node.js + Express + Nodemailer |
+| **Scraper & Fuel Engine** | Python 3 (BeautifulSoup web scraper + DriveSpark) |
+| **Database** | MySQL (Normalized 3NF schema with auto-cleanup event schedulers) |
 
-## Architecture
+---
+
+## 🏗️ System Architecture
 
 ```
 Browser (localhost:3000)
   ├── React SPA (Vite dev server)
+  │     ├── Multi-Source Geocoder (Photon + Nominatim)
+  │     ├── Compact Leaflet Mini-Maps & Interactive Map Pin Modal
+  │     └── User-Isolated Saved Places Manager
   │
   ├── PHP Backend (localhost:80/fuelshare-backend)
-  │   └── MySQL (localhost:3306)
+  │   └── MySQL Database (localhost:3306)
   │
-  └── Node.js Server (localhost:5000)
-      ├── POST /api/send-otp     → Sends OTP email via Gmail SMTP
-      ├── POST /api/verify-otp   → Validates OTP server-side
-      └── POST /api/calculate    → Bridges to Python fuel engine
+  └── Node.js & Python Engine (localhost:5000)
+      ├── POST /api/send-otp        → Sends OTP email via Gmail SMTP
+      ├── POST /api/verify-otp      → Validates OTP server-side
+      ├── GET  /api/fuel-price      → Scrapes live city petrol rates via Python engine
+      └── POST /api/calculate       → Calculates mathematically exact fuel cost per seat
 ```
 
-## Setup
+---
+
+## ⚙️ Setup Instructions
 
 ### Prerequisites
 
 - [XAMPP](https://www.apachefriends.org/) (Apache + MySQL)
 - [Node.js](https://nodejs.org/) (v18+)
-- [Python 3](https://www.python.org/) (optional, for the pricing engine)
+- [Python 3](https://www.python.org/) with `beautifulsoup4` and `requests`
 
-### 1. Clone and install
+### 1. Clone & Install Dependencies
 
 ```bash
-git clone https://github.com/your-username/Fuel-share-App.git
+git clone https://github.com/Arsenicwatts/Fuel-share-App.git
 cd Fuel-share-App/frontend
 npm install
 ```
 
-### 2. Database
+### 2. Database Setup
 
-Start MySQL from XAMPP, then import the schema:
+Start MySQL from XAMPP, then import `database/schema.sql`:
 
 ```bash
-# Via command line
+# Command line
 mysql -u root < database/schema.sql
 
-# Or via phpMyAdmin: Import → select database/schema.sql
+# Or via phpMyAdmin: Import -> database/schema.sql
 ```
 
-### 3. PHP Backend
+### 3. PHP Backend Junction
 
-Make the backend accessible to Apache:
+Link the backend directory to Apache `htdocs`:
 
 ```bash
-# Windows (run as admin)
+# Windows (run CMD as Admin)
 mklink /J "C:\xampp\htdocs\fuelshare-backend" "path\to\Fuel-share-App\backend"
 ```
 
-### 4. Environment
+### 4. Environment Variables
 
 Create `frontend/.env`:
 
 ```env
 SMTP_EMAIL=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
+SMTP_PASSWORD=your-gmail-app-password
 ```
 
-### 5. Run
-
-Start Apache and MySQL from XAMPP Control Panel, then:
+### 5. Launch Application
 
 ```bash
 cd frontend
 npm start
 ```
 
-This launches both the Vite dev server (port 3000) and the Node mail server (port 5000) concurrently.
+This launches the Vite Dev Server (`http://localhost:3000`) and the Node.js Mail/Fuel Engine Server (`http://localhost:5000`) concurrently.
 
-Open **http://localhost:3000**.
+---
 
-## API Endpoints
+## 📡 API Endpoints
 
-### Authentication
+### PHP API (`http://localhost/fuelshare-backend/api/index.php`)
+
+| Method | Action | Description |
+|--------|--------|-------------|
+| POST | `signup` | Create account (bcrypt hashed) |
+| POST | `login` | Authenticate user |
+| GET | `get_rides` | List all active rides with seat availability |
+| POST | `create_ride` | Publish a new ride with route coordinates |
+| POST | `delete_ride` | Soft-delete a ride |
+| POST | `request_seat` | Request a seat on a ride |
+| POST | `respond_request` | Accept or decline passenger request |
+| POST | `send_message` | Send chat message to driver/passenger |
+| GET | `my_bookings` | Get user's rides (driver + passenger) |
+
+### Node.js & Python Engine (`http://localhost:5000`)
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `?action=signup` | Create account (bcrypt hashed) |
-| POST | `?action=login` | Authenticate user |
-
-### Rides
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `?action=get_rides` | List all open rides with requests & chat |
-| POST | `?action=create_ride` | Publish a new ride |
-| POST | `?action=delete_ride` | Soft-delete a ride |
-
-### Seat Requests
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `?action=request_seat` | Request a seat on a ride |
-| POST | `?action=cancel_request` | Cancel a seat request |
-| POST | `?action=respond_request` | Accept or decline a request |
-
-### Messaging
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `?action=send_message` | Send a chat message |
-
-### Profile
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `?action=update_profile` | Update name, phone, bio |
-| POST | `?action=delete_account` | Permanently delete account (cascades) |
-| GET | `?action=my_bookings` | Get user's rides (driver + passenger) |
-| GET | `?action=user_vehicles` | Get user's last registered vehicle |
-
-### Node.js Server (port 5000)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/send-otp` | Generate and email OTP |
+| POST | `/api/send-otp` | Generate and email verification OTP |
 | POST | `/api/verify-otp` | Validate submitted OTP |
-| POST | `/api/calculate` | Run Python pricing engine |
+| GET | `/api/fuel-price?location={city}` | Scrapes live city petrol rates |
+| POST | `/api/calculate` | Run Python cost sharing calculation |
 
-## Database Schema
+---
 
-5 tables: `users`, `vehicles`, `rides`, `ride_requests`, `messages`. All foreign keys use `ON DELETE CASCADE`. A MySQL Event Scheduler auto-cleans completed/deleted rides after 10 minutes.
+## 🔒 Security & Best Practices
 
-## Security
+- Passwords hashed with **bcrypt** (`password_hash` / `password_verify`).
+- Server-side OTP validation (never exposed to browser state).
+- Prepared statements (PDO) against SQL injection.
+- User-isolated `localStorage` keys for custom saved places.
 
-- Passwords hashed with **bcrypt** (`password_hash` / `password_verify`)
-- OTP generated and verified **server-side** (never exposed to browser)
-- SMTP credentials stored in `.env` (excluded from Git)
-- Prepared statements (PDO) for all database queries
+---
 
-## License
+## 📜 License
 
-Academic project. Not licensed for commercial use.
+Academic project created for campus ride sharing.

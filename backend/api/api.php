@@ -157,53 +157,57 @@ if ($method === 'GET' && $action === 'get_rides') {
 if ($method === 'POST' && $action === 'create_ride') {
     $data = json_decode(file_get_contents("php://input"));
 
-    // Input validation
-    if (!$data || !isset($data->driver_id, $data->start_location, $data->end_location, $data->distance, $data->start_time, $data->cost_per_seat)) {
-        echo json_encode(["error" => "Missing required fields."]);
-        exit();
-    }
-
-    $distance = floatval($data->distance);
+    $distance = floatval($data->distance ?? $data->distance_km ?? 0);
+    $cost_per_seat = floatval($data->cost_per_seat ?? $data->calculated_cost_per_seat ?? 0);
+    $driver_id = $data->driver_id ?? null;
+    $start_location = $data->start_location ?? '';
+    $end_location = $data->end_location ?? '';
+    $start_time = $data->start_time ?? null;
+    $model = $data->model ?? 'Standard Car';
     $mileage = floatval($data->mileage ?? 15.0);
     $capacity = intval($data->capacity ?? 4);
 
-    if ($distance <= 0) {
-        echo json_encode(["error" => "Distance must be greater than 0."]);
-        exit();
-    }
-    if ($mileage <= 0) {
-        echo json_encode(["error" => "Mileage must be greater than 0."]);
-        exit();
-    }
-    if ($capacity <= 0) {
-        echo json_encode(["error" => "Capacity must be greater than 0."]);
+    // Input validation
+    if (!$data || !$driver_id || !$start_location || !$end_location || $distance <= 0 || !$start_time) {
+        echo json_encode(["error" => "Missing required fields: driver, locations, distance (>0), or departure time."]);
         exit();
     }
 
+    if ($mileage <= 0) $mileage = 15.0;
+    if ($capacity <= 0) $capacity = 4;
+    if ($cost_per_seat <= 0) {
+        $totalFuel = $distance / $mileage;
+        $cost_per_seat = round(($totalFuel * 96.72) / $capacity);
+    }
+
     $stmt = $conn->prepare("SELECT vehicle_id FROM vehicles WHERE owner_id = ? AND model = ?");
-    $stmt->execute([$data->driver_id, $data->model]);
+    $stmt->execute([$driver_id, $model]);
     $vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($vehicle) {
         $vehicle_id = $vehicle['vehicle_id'];
     } else {
         $stmt = $conn->prepare("INSERT INTO vehicles (owner_id, model, mileage, capacity) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$data->driver_id, $data->model, $mileage, $capacity]);
+        $stmt->execute([$driver_id, $model, $mileage, $capacity]);
         $vehicle_id = $conn->lastInsertId();
     }
 
-    $sql = "INSERT INTO rides (driver_id, vehicle_id, start_location, end_location, distance_km, start_time, base_fuel_price, calculated_cost_per_seat) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    $sql = "INSERT INTO rides (driver_id, vehicle_id, start_location, end_location, start_lat, start_lng, end_lat, end_lng, distance_km, start_time, base_fuel_price, calculated_cost_per_seat) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt = $conn->prepare($sql);
     $stmt->execute([
-        $data->driver_id,
+        $driver_id,
         $vehicle_id,
-        $data->start_location,
-        $data->end_location,
+        $start_location,
+        $end_location,
+        $data->start_lat ?? null,
+        $data->start_lng ?? null,
+        $data->end_lat ?? null,
+        $data->end_lng ?? null,
         $distance,
-        $data->start_time,
+        $start_time,
         96.72,
-        $data->cost_per_seat
+        $cost_per_seat
     ]);
 
     $ride_id = $conn->lastInsertId();
@@ -299,6 +303,18 @@ if ($method === 'POST' && $action === 'delete_ride') {
         exit();
     }
     $stmt = $conn->prepare("UPDATE rides SET status = 'Deleted' WHERE ride_id = ?");
+    $stmt->execute([$data->ride_id]);
+    echo json_encode(["success" => true]);
+    exit();
+}
+
+if ($method === 'POST' && $action === 'complete_ride') {
+    $data = json_decode(file_get_contents("php://input"));
+    if (!$data || !isset($data->ride_id)) {
+        echo json_encode(["error" => "Missing ride_id."]);
+        exit();
+    }
+    $stmt = $conn->prepare("UPDATE rides SET status = 'Completed' WHERE ride_id = ?");
     $stmt->execute([$data->ride_id]);
     echo json_encode(["success" => true]);
     exit();

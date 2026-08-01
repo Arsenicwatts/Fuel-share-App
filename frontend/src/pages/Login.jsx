@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { Mail, Lock, User, CheckCircle, Leaf, Shield, AlertCircle, KeyRound, Loader2 } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
-export default function Login({ onLogin }) {
+export default function Login() {
+  const { login, API_URL, NODE_URL } = useApp();
   const [isSignup, setIsSignup] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // OTP Verification States
   const [showOtp, setShowOtp] = useState(false);
@@ -25,7 +28,7 @@ export default function Login({ onLogin }) {
 
     try {
       // Server generates the OTP and emails it — we never see the code
-      const res = await fetch(`http://${window.location.hostname}:5000/api/send-otp`, {
+      const res = await fetch(`${NODE_URL}/api/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email })
@@ -59,7 +62,7 @@ export default function Login({ onLogin }) {
     if (isSignup && showOtp) {
       setIsLoading(true);
       try {
-        const verifyRes = await fetch(`http://${window.location.hostname}:5000/api/verify-otp`, {
+        const verifyRes = await fetch(`${NODE_URL}/api/verify-otp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: formData.email, otp: userOtp })
@@ -72,7 +75,7 @@ export default function Login({ onLogin }) {
         }
       } catch (err) {
         setIsLoading(false);
-        return setError("Failed to verify OTP. Ensure the server is running.");
+        return setError("Failed to verify code with backend server.");
       }
     }
 
@@ -84,7 +87,7 @@ export default function Login({ onLogin }) {
         ? { name: formData.name, email: formData.email, password: formData.password }
         : { email: formData.email, password: formData.password };
 
-      const res = await fetch(`http://${window.location.hostname}/fuelshare-backend/api/api.php?action=${endpoint}`, {
+      const res = await fetch(`${API_URL}?action=${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,7 +102,7 @@ export default function Login({ onLogin }) {
         return setError(data.error);
       }
 
-      onLogin(data); // Successfully logged in or verified & created
+      login(data, rememberMe); // Successfully logged in or verified & created
     } catch (err) {
       setError("Failed to connect to database backend. Ensure XAMPP is running!");
       setIsLoading(false);
@@ -118,16 +121,16 @@ export default function Login({ onLogin }) {
 
       {/* Introduction Hero Section */}
       <div className="w-full max-w-5xl mx-auto flex flex-col items-center text-center mt-12 md:mt-24 mb-16 px-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-        <span className="inline-block py-1 px-4 rounded-full bg-emerald-100/50 backdrop-blur-md text-emerald-800 text-sm font-bold tracking-wide mb-6 border border-emerald-200/50 shadow-sm">
+        <span className="inline-block py-1.5 px-4 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-sm font-bold tracking-wide mb-6 border border-emerald-300/60 shadow-sm">
           Campus Commuting, Reimagined
         </span>
-        <h1 className="text-4xl md:text-6xl font-extrabold text-slate-800 tracking-tight leading-tight mb-6">
+        <h1 className="text-4xl md:text-6xl font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-6">
           Share the Ride. <br className="hidden md:block" />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">
             Split the Exact Cost.
           </span>
         </h1>
-        <p className="text-lg text-slate-600 max-w-2xl mb-12">
+        <p className="text-lg text-slate-700 dark:text-slate-300 font-medium max-w-2xl mb-12">
           FuelShare is a zero-profit, student-exclusive carpooling platform. We crunch real-time fuel data to calculate your exact micro-share.
         </p>
 
@@ -138,12 +141,12 @@ export default function Login({ onLogin }) {
             { icon: Shield, title: "100% Verified", desc: "Access restricted strictly to university emails." },
             { icon: Leaf, title: "Eco-Conscious", desc: "Track the CO₂ you save with every shared trip." }
           ].map((feat, i) => (
-            <div key={i} className="bg-white/30 backdrop-blur-xl rounded-2xl p-6 border border-white/50 shadow-lg shadow-teal-500/5 flex flex-col items-center text-center hover:-translate-y-1 transition-transform">
-              <div className="w-12 h-12 rounded-full bg-emerald-100/80 backdrop-blur-sm flex items-center justify-center mb-4 text-emerald-600 border border-white/60">
+            <div key={i} className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl p-6 border border-white/80 dark:border-slate-700 shadow-md shadow-teal-500/5 flex flex-col items-center text-center hover:-translate-y-1 transition-transform">
+              <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/60 backdrop-blur-sm flex items-center justify-center mb-4 text-emerald-700 dark:text-emerald-400 border border-emerald-200">
                 <feat.icon size={24} />
               </div>
-              <h3 className="font-bold text-slate-800 mb-2">{feat.title}</h3>
-              <p className="text-sm text-slate-600 leading-relaxed">{feat.desc}</p>
+              <h3 className="font-bold text-slate-900 dark:text-white mb-2">{feat.title}</h3>
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-medium">{feat.desc}</p>
             </div>
           ))}
         </div>
@@ -151,9 +154,9 @@ export default function Login({ onLogin }) {
 
       {/* Auth Card */}
       <div id="auth-form" className="w-full max-w-md px-4 scroll-mt-24 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300 fill-mode-both">
-        <div className="bg-white/20 backdrop-blur-2xl rounded-[2rem] shadow-2xl shadow-teal-500/10 overflow-hidden border border-white/40 relative">
+        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl rounded-[2rem] shadow-2xl shadow-teal-500/10 overflow-hidden border border-white/80 dark:border-slate-700 relative">
 
-          <div className="bg-gradient-to-br from-emerald-500/90 to-teal-600/90 p-8 text-white relative transition-all duration-300">
+          <div className="bg-gradient-to-br from-emerald-600 to-teal-700 p-8 text-white relative transition-all duration-300">
             {!showOtp ? (
               <>
                 <h2 className="text-3xl font-bold mb-2 relative z-10">{isSignup ? 'Create Account' : 'Welcome Back'}</h2>
@@ -173,18 +176,18 @@ export default function Login({ onLogin }) {
 
           <div className="p-8">
             {!showOtp && (
-              <div className="flex justify-center mb-6 bg-slate-100/50 p-1.5 rounded-xl border border-slate-200/50">
+              <div className="flex justify-center mb-6 bg-slate-100 dark:bg-slate-700/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
                 <button
                   type="button"
                   onClick={() => handleToggleMode(false)}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${!isSignup ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${!isSignup ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
                 >
                   Login
                 </button>
                 <button
                   type="button"
                   onClick={() => handleToggleMode(true)}
-                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${isSignup ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${isSignup ? 'bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
                 >
                   Sign Up
                 </button>
@@ -192,7 +195,7 @@ export default function Login({ onLogin }) {
             )}
 
             {error && (
-              <div className="mb-6 bg-red-50 text-red-600 p-3 rounded-xl flex items-center gap-3 text-sm font-semibold border border-red-100 animate-in fade-in">
+              <div className="mb-6 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded-xl flex items-center gap-3 text-sm font-semibold border border-red-200 dark:border-red-800 animate-in fade-in">
                 <AlertCircle size={18} className="shrink-0" />
                 <p>{error}</p>
               </div>
@@ -204,33 +207,47 @@ export default function Login({ onLogin }) {
                 // Standard Login/Signup Fields
                 <>
                   <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isSignup ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0 hidden'}`}>
-                    <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wide">Full Name</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">Full Name</label>
                     <div className="relative">
-                      <User size={18} className="absolute left-3 top-3.5 text-slate-400" />
-                      <input name="name" onChange={handleChange} value={formData.name} className="input-field pl-10 bg-white/50" placeholder="John Doe" required={isSignup} />
+                      <User size={18} className="absolute left-3 top-3.5 text-slate-500" />
+                      <input name="name" onChange={handleChange} value={formData.name} className="input-field pl-10" placeholder="John Doe" required={isSignup} />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wide">College Email</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">College Email</label>
                     <div className="relative">
-                      <Mail size={18} className="absolute left-3 top-3.5 text-slate-400" />
-                      <input type="email" name="email" onChange={handleChange} value={formData.email} className="input-field pl-10 bg-white/50" placeholder="student@college.edu" required />
+                      <Mail size={18} className="absolute left-3 top-3.5 text-slate-500" />
+                      <input type="email" name="email" onChange={handleChange} value={formData.email} className="input-field pl-10" placeholder="student@college.edu" required />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wide">Password</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">Password</label>
                     <div className="relative">
-                      <Lock size={18} className="absolute left-3 top-3.5 text-slate-400" />
-                      <input type="password" name="password" onChange={handleChange} value={formData.password} className="input-field pl-10 bg-white/50" placeholder="••••••••" required />
+                      <Lock size={18} className="absolute left-3 top-3.5 text-slate-500" />
+                      <input type="password" name="password" onChange={handleChange} value={formData.password} className="input-field pl-10" placeholder="••••••••" required />
                     </div>
+                  </div>
+
+                  {/* Remember Me Checkbox */}
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                      />
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Remember Me (24h)</span>
+                    </label>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">Clears on tab close if unchecked</span>
                   </div>
                 </>
               ) : (
                 // OTP Challenge Phase
                 <div className="animate-in fade-in zoom-in-95 duration-300">
-                  <label className="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wide">6-Digit Verification Code</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">6-Digit Verification Code</label>
                   <div className="relative">
                     <KeyRound size={18} className="absolute left-3 top-3.5 text-emerald-600" />
                     <input

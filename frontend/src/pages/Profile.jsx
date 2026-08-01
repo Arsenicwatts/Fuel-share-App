@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { User, Phone, FileText, CheckCircle2, AlertTriangle, X, KeyRound, Loader2, Frown } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
-export default function Profile({ user, onUpdateUser, API_URL, onLogout }) {
+export default function Profile() {
+  const { user, setUser, API_URL, NODE_URL, logout } = useApp();
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
@@ -40,7 +42,7 @@ export default function Profile({ user, onUpdateUser, API_URL, onLogout }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      onUpdateUser({ ...user, ...formData });
+      setUser({ ...user, ...formData });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
@@ -63,7 +65,7 @@ export default function Profile({ user, onUpdateUser, API_URL, onLogout }) {
     setDeleteLoading(true);
     setDeleteError('');
     try {
-      const nodeApi = `http://${window.location.hostname}:5000/api/send-otp`;
+      const nodeApi = `${NODE_URL}/api/send-otp`;
       const res = await fetch(nodeApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,7 +89,7 @@ export default function Profile({ user, onUpdateUser, API_URL, onLogout }) {
 
     try {
       // Verify OTP server-side
-      const verifyRes = await fetch(`http://${window.location.hostname}:5000/api/verify-otp`, {
+      const verifyRes = await fetch(`${NODE_URL}/api/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email, otp: userOtp })
@@ -106,7 +108,7 @@ export default function Profile({ user, onUpdateUser, API_URL, onLogout }) {
         body: JSON.stringify({ id: user.id })
       });
       alert("Your account has been permanently deleted.");
-      onLogout();
+      logout();
     } catch (err) {
       setDeleteError("Server error during deletion.");
       setDeleteLoading(false);
@@ -114,43 +116,43 @@ export default function Profile({ user, onUpdateUser, API_URL, onLogout }) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto pb-20 animate-in fade-in duration-500">
-      <div className="bg-white/20 backdrop-blur-xl rounded-3xl p-8 shadow-lg border border-white/40">
+    <div className="max-w-2xl mx-auto animate-in fade-in duration-500">
+      <div className="bg-white/85 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-md border border-white/80 dark:border-slate-700/60">
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center font-bold text-2xl">
+          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 rounded-full flex items-center justify-center font-black text-2xl">
             {user?.name?.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">Your Profile</h2>
-            <p className="text-slate-500">Add details so drivers know who they are picking up.</p>
+            <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white">Your Profile</h2>
+            <p className="text-slate-700 dark:text-slate-300 font-medium mt-0.5">Add details so drivers know who they are picking up.</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Full Name</label>
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Full Name</label>
               <div className="relative">
-                <User size={18} className="absolute left-3 top-3.5 text-slate-400" />
+                <User size={18} className="absolute left-3 top-3.5 text-slate-500" />
                 <input required name="name" value={formData.name} onChange={handleChange} className="input-field pl-10" />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">College Email</label>
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">College Email</label>
               <div className="relative">
-                <FileText size={18} className="absolute left-3 top-3.5 text-slate-400" />
-                <input disabled value={formData.email} className="input-field pl-10 bg-slate-50 text-slate-500 cursor-not-allowed" />
+                <FileText size={18} className="absolute left-3 top-3.5 text-slate-500" />
+                <input disabled value={formData.email} className="input-field pl-10 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 cursor-not-allowed font-medium" />
               </div>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Contact Number</label>
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Contact Number</label>
               <div className="relative">
-                <Phone size={18} className="absolute left-3 top-3.5 text-slate-400" />
+                <Phone size={18} className="absolute left-3 top-3.5 text-slate-500" />
                 <input name="phone" value={formData.phone} onChange={handleChange} placeholder="e.g. +91 98765 43210" className="input-field pl-10" />
               </div>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Short Bio</label>
+              <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Short Bio</label>
               <textarea
                 name="bio"
                 value={formData.bio}
