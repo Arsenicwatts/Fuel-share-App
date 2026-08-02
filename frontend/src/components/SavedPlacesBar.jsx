@@ -4,13 +4,13 @@ import LocationSearch from './LocationSearch';
 import { useApp } from '../context/AppContext';
 
 export default function SavedPlacesBar({ onSelectPlace, onOpenMapPicker }) {
-  const { user } = useApp();
+  const { user, API_URL } = useApp();
   const activeUserKey = user?.id || user?.user_id || user?.email || 'guest';
   const storageKey = `fuelshare_saved_places_${activeUserKey}`;
 
   const [savedPlaces, setSavedPlaces] = useState(() => {
     try {
-      const stored = localStorage.getItem(`fuelshare_saved_places_${activeUserKey}`);
+      const stored = localStorage.getItem(storageKey);
       const parsed = stored ? JSON.parse(stored) : [];
       return Array.isArray(parsed) ? parsed : [];
     } catch (e) {
@@ -23,26 +23,50 @@ export default function SavedPlacesBar({ onSelectPlace, onOpenMapPicker }) {
   const [placeLabel, setPlaceLabel] = useState('');
   const [selectedLoc, setSelectedLoc] = useState(null);
 
-  // Sync state when active user changes
+  // Fetch saved places from DB for true cross-device synchronization
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      const parsed = stored ? JSON.parse(stored) : [];
-      setSavedPlaces(Array.isArray(parsed) ? parsed : []);
-    } catch (e) {
-      setSavedPlaces([]);
-    }
-  }, [storageKey]);
+    if (!user) return;
+    const fetchDBPlaces = async () => {
+      try {
+        const query = user.id ? `user_id=${user.id}` : `email=${encodeURIComponent(user.email)}`;
+        const res = await fetch(`${API_URL}?action=get_saved_places&${query}`);
+        const dbPlaces = await res.json();
+        if (Array.isArray(dbPlaces) && dbPlaces.length > 0) {
+          setSavedPlaces(dbPlaces);
+          localStorage.setItem(storageKey, JSON.stringify(dbPlaces));
+        }
+      } catch (err) {
+        console.warn("DB saved places fetch error, relying on local copy:", err);
+      }
+    };
+    fetchDBPlaces();
+  }, [user, API_URL, storageKey]);
 
   const updatePlaces = (updater) => {
     setSavedPlaces(prev => {
       const next = typeof updater === 'function' ? updater(prev) : updater;
       const cleanList = Array.isArray(next) ? next : [];
+
+      // Update local storage for instant zero-latency UI
       try {
         localStorage.setItem(storageKey, JSON.stringify(cleanList));
       } catch (e) {
-        console.error('Failed to update storage:', e);
+        console.error('Failed to update local storage:', e);
       }
+
+      // Sync to MySQL Database for cross-device persistence
+      if (user) {
+        fetch(`${API_URL}?action=update_saved_places`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: user.id,
+            email: user.email,
+            saved_places: cleanList
+          })
+        }).catch(err => console.error("Failed to sync saved places to DB:", err));
+      }
+
       return cleanList;
     });
   };

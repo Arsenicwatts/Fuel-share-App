@@ -18,6 +18,13 @@ $pass = '';
 try {
     $conn = new PDO("mysql:host=$host;dbname=$db", $user, $pass);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    // Auto-migrate saved_places column if missing
+    try {
+        $conn->query("SELECT saved_places FROM users LIMIT 1");
+    } catch (PDOException $ex) {
+        $conn->exec("ALTER TABLE users ADD COLUMN saved_places LONGTEXT DEFAULT NULL");
+    }
 } catch (PDOException $e) {
     die(json_encode(["error" => "DB Connection Failed: " . $e->getMessage()]));
 }
@@ -60,7 +67,7 @@ if ($method === 'POST' && $action === 'signup') {
     $stmt->execute([$data->name, $data->email, $hashedPassword]);
     $user_id = $conn->lastInsertId();
 
-    echo json_encode(["id" => $user_id, "name" => $data->name, "email" => $data->email]);
+    echo json_encode(["id" => $user_id, "name" => $data->name, "email" => $data->email, "saved_places" => "[]"]);
     exit();
 }
 
@@ -71,7 +78,7 @@ if ($method === 'POST' && $action === 'login') {
         exit();
     }
 
-    $stmt = $conn->prepare("SELECT user_id as id, name, email, phone, bio, password_hash FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT user_id as id, name, email, phone, bio, saved_places, password_hash FROM users WHERE email = ?");
     $stmt->execute([$data->email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -82,6 +89,52 @@ if ($method === 'POST' && $action === 'login') {
     } else {
         echo json_encode(["error" => "Invalid email or password."]);
     }
+    exit();
+}
+
+// ======================== SAVED PLACES ========================
+
+if ($method === 'GET' && $action === 'get_saved_places') {
+    $userId = $_GET['user_id'] ?? null;
+    $userEmail = $_GET['email'] ?? null;
+
+    if (!$userId && !$userEmail) {
+        echo json_encode([]);
+        exit();
+    }
+
+    if ($userId) {
+        $stmt = $conn->prepare("SELECT saved_places FROM users WHERE user_id = ?");
+        $stmt->execute([$userId]);
+    } else {
+        $stmt = $conn->prepare("SELECT saved_places FROM users WHERE email = ?");
+        $stmt->execute([$userEmail]);
+    }
+
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $places = ($row && !empty($row['saved_places'])) ? json_decode($row['saved_places'], true) : [];
+    echo json_encode(is_array($places) ? $places : []);
+    exit();
+}
+
+if ($method === 'POST' && $action === 'update_saved_places') {
+    $data = json_decode(file_get_contents("php://input"));
+    if (!$data || (!isset($data->user_id) && !isset($data->email)) || !isset($data->saved_places)) {
+        echo json_encode(["error" => "Invalid payload"]);
+        exit();
+    }
+
+    $jsonStr = json_encode($data->saved_places);
+
+    if (isset($data->user_id) && $data->user_id) {
+        $stmt = $conn->prepare("UPDATE users SET saved_places = ? WHERE user_id = ?");
+        $stmt->execute([$jsonStr, $data->user_id]);
+    } else {
+        $stmt = $conn->prepare("UPDATE users SET saved_places = ? WHERE email = ?");
+        $stmt->execute([$jsonStr, $data->email]);
+    }
+
+    echo json_encode(["status" => "success", "saved_places" => $data->saved_places]);
     exit();
 }
 

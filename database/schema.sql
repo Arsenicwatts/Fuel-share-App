@@ -9,6 +9,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     phone VARCHAR(20) DEFAULT NULL,
     bio TEXT DEFAULT NULL,
+    saved_places LONGTEXT DEFAULT NULL,
     is_driver BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

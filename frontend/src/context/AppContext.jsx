@@ -104,14 +104,31 @@ export function AppProvider({ children }) {
   const [rides, setRides] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [totalCO2Saved, setTotalCO2Saved] = useState(() => {
-    const saved = localStorage.getItem('fuelshare_co2');
-    return saved ? parseFloat(saved) : 0;
-  });
+  // Dynamically compute CO2 saved (kg) from user's actual database rides for 100% cross-device consistency
+  const totalCO2Saved = React.useMemo(() => {
+    if (!user || !Array.isArray(rides)) return 0;
 
-  useEffect(() => {
-    localStorage.setItem('fuelshare_co2', totalCO2Saved.toString());
-  }, [totalCO2Saved]);
+    let totalKmShared = 0;
+
+    rides.forEach(ride => {
+      const isDriver = ride.driver_email === user.email;
+      const acceptedRequests = (ride.requests || []).filter(r => r.status === 'accepted');
+
+      if (isDriver) {
+        // Driver saves CO2 for every passenger sharing the trip
+        totalKmShared += (ride.distance_km || 0) * acceptedRequests.length;
+      } else {
+        // Passenger saves CO2 if accepted on this ride
+        const isAccepted = (ride.requests || []).some(r => r.email === user.email && r.status === 'accepted');
+        if (isAccepted) {
+          totalKmShared += (ride.distance_km || 0);
+        }
+      }
+    });
+
+    // Average car emission saved: ~0.15 kg CO2 per passenger-km shared
+    return Math.round(totalKmShared * 0.15 * 10) / 10;
+  }, [user, rides]);
 
   const fetchRides = useCallback(async () => {
     try {
@@ -154,15 +171,11 @@ export function AppProvider({ children }) {
     fetchRides();
   };
 
-  const respondRequest = async (ride_id, passenger_email, response_status, distance_km) => {
+  const respondRequest = async (ride_id, passenger_email, response_status) => {
     await fetch(`${API_URL}?action=respond_request`, {
       method: "POST", headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ride_id, passenger_email, response_status })
     });
-
-    if (response_status === 'accepted') {
-      setTotalCO2Saved(prev => prev + distance_km * 0.192);
-    }
     fetchRides();
   };
 
