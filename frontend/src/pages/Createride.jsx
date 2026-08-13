@@ -132,33 +132,61 @@ export default function CreateRide() {
     return `${dateStr} at ${timeStr}`;
   };
 
-  // Auto-calculate distance using Haversine immediately + OSRM route API refinement
+  const [routeEtaMins, setRouteEtaMins] = useState(null);
+
+  // Geocode location string fallback if coordinates are not attached
+  const geocodeLocationStr = async (locInput) => {
+    if (!locInput) return null;
+    const query = typeof locInput === 'string' ? locInput : locInput.displayName || '';
+    if (!query) return null;
+    try {
+      const clean = query.replace(/^📍\s*/, '');
+      const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(clean)}&limit=1`);
+      const data = await res.json();
+      if (data.features?.[0]?.geometry?.coordinates) {
+        const [lng, lat] = data.features[0].geometry.coordinates;
+        return { lat, lng };
+      }
+    } catch (e) {}
+    return null;
+  };
+
+  // Auto-calculate exact driving distance & travel duration via OSRM Routing Engine
   useEffect(() => {
-    if (!origin || !destination) return;
+    if (!origin || !destination) {
+      setRouteEtaMins(null);
+      return;
+    }
 
-    // 1. Immediately set Haversine straight-line distance fallback so distance is never empty
-    const hDist = haversineDistance(origin.lat, origin.lng, destination.lat, destination.lng);
-    const estKm = parseFloat((hDist > 0 ? hDist * 1.25 : 10).toFixed(1));
-    setFormData(prev => ({ ...prev, distance: estKm }));
+    const computeRoute = async () => {
+      setCalculatingDist(true);
+      let oCoords = (origin.lat && origin.lng) ? { lat: origin.lat, lng: origin.lng } : await geocodeLocationStr(origin);
+      let dCoords = (destination.lat && destination.lng) ? { lat: destination.lat, lng: destination.lng } : await geocodeLocationStr(destination);
 
-    // 2. Try OSRM route API refinement with 1.5s timeout
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 1500);
+      if (oCoords && dCoords) {
+        try {
+          const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${oCoords.lng},${oCoords.lat};${dCoords.lng},${dCoords.lat}?overview=false`);
+          const data = await res.json();
+          if (data.code === 'Ok' && data.routes?.[0]) {
+            const distKm = parseFloat((data.routes[0].distance / 1000).toFixed(1));
+            const durationMins = Math.round(data.routes[0].duration / 60);
+            setFormData(prev => ({ ...prev, distance: distKm }));
+            setRouteEtaMins(durationMins);
+            setCalculatingDist(false);
+            return;
+          }
+        } catch (e) {}
 
-    fetch(`https://router.project-osrm.org/route/v1/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=false`, {
-      signal: controller.signal
-    })
-      .then(res => res.json())
-      .then(data => {
-        clearTimeout(timer);
-        if (data.code === 'Ok' && data.routes?.[0]) {
-          const distKm = parseFloat((data.routes[0].distance / 1000).toFixed(1));
-          setFormData(prev => ({ ...prev, distance: distKm }));
-        }
-      })
-      .catch(() => {
-        // Fallback already active!
-      });
+        const hDist = haversineDistance(oCoords.lat, oCoords.lng, dCoords.lat, dCoords.lng);
+        const estKm = parseFloat((hDist > 0 ? hDist * 1.25 : 12.5).toFixed(1));
+        const estMins = Math.round(estKm * 2);
+        setFormData(prev => ({ ...prev, distance: estKm }));
+        setRouteEtaMins(estMins);
+      }
+      setCalculatingDist(false);
+    };
+
+    computeRoute();
   }, [origin, destination]);
 
   // Haversine formula for straight-line distance calculation
@@ -436,6 +464,38 @@ export default function CreateRide() {
               />
             </div>
           </div>
+
+          {/* Calculated OSRM Driving Route & ETA Summary Box */}
+          {origin && destination && (
+            <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-600 text-white rounded-xl shadow-md">
+                  {calculatingDist ? <Loader2 size={22} className="animate-spin" /> : <Navigation size={22} />}
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase font-extrabold text-emerald-800 dark:text-emerald-300">
+                    {calculatingDist ? 'Calculating Driving Route & ETA...' : '⚡ OSRM Driving Route & ETA'}
+                  </p>
+                  <div className="flex items-center gap-3 text-slate-900 dark:text-white font-extrabold text-lg mt-0.5">
+                    <span>{formData.distance ? `${formData.distance} km` : '—'}</span>
+                    {routeEtaMins && (
+                      <>
+                        <span className="text-slate-400">•</span>
+                        <span className="text-emerald-700 dark:text-emerald-400 text-base font-bold flex items-center gap-1">
+                          <Clock size={15} /> ~{routeEtaMins} mins driving time
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-xs bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-200 px-3 py-1.5 rounded-full font-extrabold border border-emerald-300 dark:border-emerald-700 shadow-xs flex items-center gap-1.5">
+                  <Fuel size={13} className="text-emerald-600 dark:text-emerald-400" /> ₹{liveFuelPrice}/L ({cityName})
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Route Preview Map */}
           {origin && destination && (

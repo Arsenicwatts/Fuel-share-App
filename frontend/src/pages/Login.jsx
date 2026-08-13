@@ -4,22 +4,53 @@ import { useApp } from '../context/AppContext';
 
 export default function Login() {
   const { login, API_URL, NODE_URL } = useApp();
-  const [isSignup, setIsSignup] = useState(false);
+  
+  const [isSignup, setIsSignup] = useState(() => {
+    try {
+      return sessionStorage.getItem('fuelshare_signup_mode') === 'true';
+    } catch (e) { return false; }
+  });
+
+  const [showOtp, setShowOtp] = useState(() => {
+    try {
+      return sessionStorage.getItem('fuelshare_show_otp') === 'true';
+    } catch (e) { return false; }
+  });
+
+  const [userOtp, setUserOtp] = useState(() => {
+    try {
+      return sessionStorage.getItem('fuelshare_user_otp') || '';
+    } catch (e) { return ''; }
+  });
+
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('fuelshare_form_data');
+      return saved ? JSON.parse(saved) : { name: '', email: '', password: '' };
+    } catch (e) {
+      return { name: '', email: '', password: '' };
+    }
+  });
+
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  // OTP Verification States
-  const [showOtp, setShowOtp] = useState(false);
-  const [userOtp, setUserOtp] = useState('');
+  const handleChange = (e) => {
+    const updated = { ...formData, [e.target.name]: e.target.value };
+    setFormData(updated);
+    try {
+      sessionStorage.setItem('fuelshare_form_data', JSON.stringify(updated));
+    } catch (e) {}
+  };
 
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: ''
-  });
-
-  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+  const handleOtpChange = (e) => {
+    const val = e.target.value.replace(/\D/g, '');
+    setUserOtp(val);
+    try {
+      sessionStorage.setItem('fuelshare_user_otp', val);
+    } catch (e) {}
+  };
 
   // 1. Initial Signup Button Click — Tells the server to generate and send OTP
   const initiateSignup = async () => {
@@ -38,8 +69,13 @@ export default function Login() {
       if (data.status === 'error') {
         setError(data.message);
       } else {
-        // Mail sent successfully, switch UI to OTP input
+        // Mail sent successfully, switch UI to OTP input and persist state across tab switches
         setShowOtp(true);
+        try {
+          sessionStorage.setItem('fuelshare_show_otp', 'true');
+          sessionStorage.setItem('fuelshare_signup_mode', 'true');
+          sessionStorage.setItem('fuelshare_form_data', JSON.stringify(formData));
+        } catch (e) {}
       }
     } catch (err) {
       setError("Failed to communicate with the mail server. Ensure `node server.js` is running on port 5000.");
@@ -102,6 +138,13 @@ export default function Login() {
         return setError(data.error);
       }
 
+      try {
+        sessionStorage.removeItem('fuelshare_show_otp');
+        sessionStorage.removeItem('fuelshare_signup_mode');
+        sessionStorage.removeItem('fuelshare_form_data');
+        sessionStorage.removeItem('fuelshare_user_otp');
+      } catch (e) {}
+
       login(data, rememberMe); // Successfully logged in or verified & created
     } catch (err) {
       setError("Failed to connect to database backend. Ensure XAMPP is running!");
@@ -114,6 +157,11 @@ export default function Login() {
     setShowOtp(false); // Reset OTP sequence if they back out of signup
     setError('');
     setUserOtp('');
+    try {
+      sessionStorage.removeItem('fuelshare_show_otp');
+      sessionStorage.setItem('fuelshare_signup_mode', String(signupMode));
+      sessionStorage.removeItem('fuelshare_user_otp');
+    } catch (e) {}
   };
 
   return (
@@ -254,7 +302,7 @@ export default function Login() {
                       type="text"
                       maxLength="6"
                       value={userOtp}
-                      onChange={(e) => setUserOtp(e.target.value.replace(/\D/g, ''))} // only allow numbers
+                      onChange={handleOtpChange}
                       className="input-field pl-10 bg-emerald-50/50 border-emerald-200 text-lg tracking-widest font-bold focus:ring-emerald-300 text-center"
                       placeholder="000000"
                       required

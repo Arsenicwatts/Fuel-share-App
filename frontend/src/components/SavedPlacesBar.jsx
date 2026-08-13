@@ -28,7 +28,8 @@ export default function SavedPlacesBar({ onSelectPlace, onOpenMapPicker }) {
     if (!user) return;
     const fetchDBPlaces = async () => {
       try {
-        const query = user.id ? `user_id=${user.id}` : `email=${encodeURIComponent(user.email)}`;
+        const userId = user?.id || user?.user_id;
+        const query = userId ? `user_id=${userId}` : `email=${encodeURIComponent(user.email)}`;
         const res = await fetch(`${API_URL}?action=get_saved_places&${query}`);
         const dbPlaces = await res.json();
         if (Array.isArray(dbPlaces) && dbPlaces.length > 0) {
@@ -56,11 +57,12 @@ export default function SavedPlacesBar({ onSelectPlace, onOpenMapPicker }) {
 
       // Sync to MySQL Database for cross-device persistence
       if (user) {
+        const userId = user?.id || user?.user_id;
         fetch(`${API_URL}?action=update_saved_places`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            user_id: user.id,
+            user_id: userId,
             email: user.email,
             saved_places: cleanList
           })

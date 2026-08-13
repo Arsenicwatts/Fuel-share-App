@@ -11,8 +11,10 @@ export default function MyBookings() {
   const [loading, setLoading] = useState(true);
 
   const fetchBookings = async () => {
+    const userId = user?.id || user?.user_id;
+    if (!userId) return;
     try {
-      const res = await fetch(`${API_URL}?action=my_bookings&user_id=${user.id}`);
+      const res = await fetch(`${API_URL}?action=my_bookings&user_id=${userId}`);
       const json = await res.json();
       if (!json.error) setData(json);
     } catch (err) {
@@ -22,8 +24,10 @@ export default function MyBookings() {
   };
 
   const fetchVehicle = async () => {
+    const userId = user?.id || user?.user_id;
+    if (!userId) return;
     try {
-      const res = await fetch(`${API_URL}?action=user_vehicles&user_id=${user.id}`);
+      const res = await fetch(`${API_URL}?action=user_vehicles&user_id=${userId}`);
       const json = await res.json();
       if (json) setVehicle(json);
     } catch (err) { console.error(err); }
@@ -31,6 +35,7 @@ export default function MyBookings() {
 
   const handleCancelRide = async (ride) => {
     if (!window.confirm('Are you sure you want to cancel this?')) return;
+    const userId = user?.id || user?.user_id;
     if (ride.user_role === 'driver') {
       await fetch(`${API_URL}?action=delete_ride`, {
         method: "POST", headers: { 'Content-Type': 'application/json' },
@@ -39,7 +44,7 @@ export default function MyBookings() {
     } else {
       await fetch(`${API_URL}?action=cancel_request`, {
         method: "POST", headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ride_id: ride.ride_id, passenger_id: user.id })
+        body: JSON.stringify({ ride_id: ride.ride_id, passenger_id: userId })
       });
     }
     fetchBookings();

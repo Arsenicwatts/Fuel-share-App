@@ -16,6 +16,9 @@ export default function Dashboard() {
     setFilteredRides(rides);
   }, [rides]);
 
+  // Display user's exact CO2 saved (defaults to 0.0 when 0 rides taken)
+  const campusCO2Saved = totalCO2Saved || 0;
+
   return (
     <div>
       {/* Eco-Metrics Banner */}
@@ -29,7 +32,7 @@ export default function Dashboard() {
           <div className="flex gap-4">
             <div className="bg-white/20 backdrop-blur-xl rounded-2xl p-4 text-center border border-white/40 shadow-lg min-w-[140px]">
               <Leaf className="mx-auto mb-2 text-emerald-100" size={28} />
-              <p className="text-4xl font-bold">{totalCO2Saved.toFixed(1)}</p>
+              <p className="text-4xl font-bold">{campusCO2Saved.toFixed(1)}</p>
               <p className="text-sm font-semibold text-emerald-50 mt-1">kg CO₂ Saved</p>
             </div>
             <div className="bg-white/20 backdrop-blur-xl rounded-2xl p-4 text-center border border-white/40 shadow-lg min-w-[140px]">

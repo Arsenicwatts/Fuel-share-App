@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { MapPin, Clock, Car, ChevronRight, Trash2, User, Phone, Users, MessageCircle, CheckCircle } from 'lucide-react';
+import { MapPin, Clock, Car, ChevronRight, Trash2, User, Phone, Users, MessageCircle, CheckCircle, Leaf } from 'lucide-react';
 import ChatBox from './ChatBox';
 import RoutePreview from './RoutePreview';
 import { useApp } from '../context/AppContext';
@@ -68,12 +68,15 @@ export default function RideCard({ ride }) {
               {ride.vehicle_model}
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-1.5">
             <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-900 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-black px-3 py-1 rounded-full text-sm">
-              ₹{Math.round(ride.calculated_cost_per_seat)}
+              ₹{Math.round(parseFloat(ride.calculated_cost_per_seat || ride.cost_per_seat || 0))}
+            </span>
+            <span className="text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <Leaf size={11} /> ~{(((parseFloat(ride.distance_km || ride.distance || 0) / 18.0) * 2.31) / 2.0).toFixed(1)}kg CO₂ saved/seat
             </span>
             {isOwner && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 mt-1">
                 <button
                   onClick={() => completeRide(ride.ride_id)}
                   className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-1"
@@ -168,7 +171,7 @@ export default function RideCard({ ride }) {
                             <ChatBox
                               messages={p.chat || []}
                               currentUser={currentUser}
-                              onSendMessage={(text) => sendMessage(ride.ride_id, p.email, currentUser, text)}
+                              onSendMessage={(text) => sendMessage(ride.ride_id, p.email, text)}
                             />
                           )}
                         </div>
@@ -218,7 +221,7 @@ export default function RideCard({ ride }) {
                   <ChatBox
                     messages={userRequest?.chat || []}
                     currentUser={currentUser}
-                    onSendMessage={(text) => sendMessage(ride.ride_id, currentUser.email, currentUser, text)}
+                    onSendMessage={(text) => sendMessage(ride.ride_id, currentUser.email, text)}
                   />
                 )}
               </div>

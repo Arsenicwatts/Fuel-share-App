@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Fuel, LogOut, Menu, X, Sun, Moon } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Fuel, LogOut, Menu, X, Sun, Moon, Bell, CheckCheck, Car, CheckCircle2, MessageSquare, Clock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function Navbar() {
-  const { user, logout, theme, toggleTheme } = useApp();
+  const { user, logout, theme, toggleTheme, notifications, unreadNotificationsCount, markNotificationsRead } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
     { label: 'Find Rides', path: '/dashboard' },
@@ -16,6 +18,22 @@ export default function Navbar() {
   ];
 
   const isActive = (path) => location.pathname === path;
+
+  const handleOpenNotifications = () => {
+    setShowNotifications(!showNotifications);
+    if (!showNotifications && unreadNotificationsCount > 0) {
+      markNotificationsRead();
+    }
+  };
+
+  const handleNotificationClick = (n) => {
+    setShowNotifications(false);
+    if (n.type === 'chat' || n.type === 'seat_request') {
+      navigate('/dashboard');
+    } else {
+      navigate('/bookings');
+    }
+  };
 
   return (
     <nav className="bg-white/85 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 sticky top-0 z-50 shadow-sm">
@@ -38,7 +56,68 @@ export default function Navbar() {
                   {item.label}
                 </Link>
               ))}
-              <div className="flex items-center gap-2 pl-6 border-l border-slate-300 dark:border-slate-700">
+
+              <div className="flex items-center gap-2 pl-6 border-l border-slate-300 dark:border-slate-700 relative">
+                {/* NOTIFICATION BELL */}
+                <div className="relative">
+                  <button
+                    onClick={handleOpenNotifications}
+                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors relative"
+                    title="Notifications"
+                  >
+                    <Bell size={20} />
+                    {unreadNotificationsCount > 0 && (
+                      <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-pulse">
+                        {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* NOTIFICATION DROPDOWN */}
+                  {showNotifications && (
+                    <div className="absolute right-0 mt-3 w-80 md:w-96 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+                      <div className="p-4 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <Bell size={18} className="text-emerald-600 dark:text-emerald-400" />
+                          <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">Notifications</h4>
+                        </div>
+                        {unreadNotificationsCount > 0 && (
+                          <button onClick={markNotificationsRead} className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-1">
+                            <CheckCheck size={14} /> Mark all read
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/50">
+                        {notifications && notifications.length > 0 ? (
+                          notifications.map((n, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => handleNotificationClick(n)}
+                              className={`p-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer flex gap-3 items-start ${!n.is_read ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''}`}
+                            >
+                              <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 mt-0.5">
+                                {n.type === 'seat_request' ? <Car size={16} /> : n.type === 'request_accepted' ? <CheckCircle2 size={16} /> : <MessageSquare size={16} />}
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-xs font-bold text-slate-900 dark:text-white">{n.title}</p>
+                                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">{n.message}</p>
+                                <p className="text-[10px] text-slate-400 font-semibold mt-1 flex items-center gap-1">
+                                  <Clock size={10} /> {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-8 text-center text-slate-400 text-xs font-medium">
+                            No recent notifications
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Dark mode toggle */}
                 <button
                   onClick={toggleTheme}
