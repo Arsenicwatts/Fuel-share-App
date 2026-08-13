@@ -9,7 +9,12 @@ import Dashboard from './pages/Dashboard';
 import CreateRide from './pages/Createride';
 import Profile from './pages/Profile';
 import MyBookings from './pages/MyBookings';
+import TermsOfService from './pages/TermsOfService';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import UniversityPartners from './pages/UniversityPartners';
+import Support from './pages/Support';
 
+// AppShell wraps all the authenticated + login routes inside the Navbar/background shell
 function AppShell() {
   const { user, toast, theme } = useApp();
 
@@ -77,7 +82,16 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppProvider>
-        <AppShell />
+        <Routes>
+          {/* Public standalone pages — have their own full-page layout, rendered outside AppShell */}
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/university-partners" element={<UniversityPartners />} />
+          <Route path="/support" element={<Support />} />
+
+          {/* All other routes (login, dashboard, etc.) go through AppShell */}
+          <Route path="/*" element={<AppShell />} />
+        </Routes>
       </AppProvider>
     </BrowserRouter>
   );

@@ -102,6 +102,7 @@ export default function CreateRide() {
     distance: '',
     start_time: initialDate,
     model: '',
+    fuel_type: 'Petrol',
     mileage: '',
     capacity: ''
   });
@@ -261,18 +262,18 @@ export default function CreateRide() {
   const [priceSource, setPriceSource] = useState('DriveSpark Live');
   const [scrapingPrice, setScrapingPrice] = useState(false);
 
-  const fetchFuelPriceForLocation = (locationQuery) => {
+  const fetchFuelPriceForLocation = (locationQuery, type = formData.fuel_type) => {
     if (!locationQuery) return;
 
-    // Instant zero-delay UI update
+    // Instant zero-delay UI update (fallback)
     const resolved = resolveCityFuelPrice(locationQuery);
     setLiveFuelPrice(resolved.price);
     setCityName(resolved.city);
-    setPriceSource(resolved.source);
+    setPriceSource('Fetching Live...');
 
     setScrapingPrice(true);
     const host = window.location.hostname || 'localhost';
-    fetch(`http://${host}:5000/api/fuel-price?location=${encodeURIComponent(locationQuery)}`)
+    fetch(`http://${host}:5000/api/fuel-price?location=${encodeURIComponent(locationQuery)}&fuel_type=${encodeURIComponent(type)}`)
       .then(res => res.json())
       .then(data => {
         if (data.price) setLiveFuelPrice(data.price);
@@ -283,11 +284,20 @@ export default function CreateRide() {
       .finally(() => setScrapingPrice(false));
   };
 
+  const handleFuelTypeChange = (e) => {
+    const newType = e.target.value;
+    setFormData({ ...formData, fuel_type: newType });
+    const targetLoc = origin?.displayName || destination?.displayName || cityName;
+    if (targetLoc) {
+      fetchFuelPriceForLocation(targetLoc, newType);
+    }
+  };
+
   // Auto-fetch live scraped fuel price whenever origin or destination changes
   useEffect(() => {
     const targetLoc = origin?.displayName || destination?.displayName;
     if (targetLoc) {
-      fetchFuelPriceForLocation(targetLoc);
+      fetchFuelPriceForLocation(targetLoc, formData.fuel_type);
     }
   }, [origin, destination]);
 
@@ -321,6 +331,7 @@ export default function CreateRide() {
         calculated_cost_per_seat: costPerSeat,
         available_seats: capacity,
         model: formData.model || 'Standard Car',
+        fuel_type: formData.fuel_type || 'Petrol',
         mileage: mileage,
         capacity: capacity,
         start_lat: origin?.lat || null,
@@ -582,10 +593,18 @@ export default function CreateRide() {
 
           <div className="pt-6 border-t border-slate-200 dark:border-slate-700 mt-6">
             <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mb-4">Vehicle Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-0">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative z-0">
               <div>
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Vehicle Model</label>
                 <input required name="model" className="input-field" placeholder="e.g. Honda City" onChange={handleChange} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Fuel Type</label>
+                <select name="fuel_type" value={formData.fuel_type} onChange={handleFuelTypeChange} className="input-field cursor-pointer font-bold">
+                  <option value="Petrol">Petrol</option>
+                  <option value="Diesel">Diesel</option>
+                  <option value="CNG">CNG</option>
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-2">Mileage (km/l)</label>
@@ -603,7 +622,7 @@ export default function CreateRide() {
             <div className="flex justify-between items-center flex-wrap gap-2">
               <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800 dark:text-slate-200">
                 <Fuel size={16} className="text-emerald-600 dark:text-emerald-400" />
-                <span>Live Scraped Petrol Rate:</span>
+                <span>Live Scraped {formData.fuel_type || 'Fuel'} Rate:</span>
                 <span className="bg-emerald-200/80 dark:bg-emerald-900/80 px-2.5 py-0.5 rounded-full font-black text-sm text-emerald-950 dark:text-emerald-100 flex items-center gap-1">
                   ₹{liveFuelPrice}/L ({cityName})
                   {scrapingPrice && <Loader2 size={12} className="animate-spin text-emerald-600 dark:text-emerald-400" />}

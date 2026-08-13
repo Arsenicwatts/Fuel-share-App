@@ -100,16 +100,60 @@ if ($method === 'POST' && $action === 'login') {
         exit();
     }
 
-    $stmt = $conn->prepare("SELECT user_id as id, name, email, phone, bio, upi_id, department, saved_places, password_hash FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT user_id as id, name, email, phone, bio, upi_id, department, saved_places, password_hash, failed_login_attempts, locked_until FROM users WHERE email = ?");
     $stmt->execute([$data->email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($user && password_verify($data->password, $user['password_hash'])) {
-        // Remove password_hash from the response
-        unset($user['password_hash']);
-        echo json_encode($user);
+    if ($user) {
+        if ($user['locked_until'] && strtotime($user['locked_until']) > time()) {
+            $remaining = ceil((strtotime($user['locked_until']) - time()) / 60);
+            echo json_encode(["error" => "Account locked due to too many failed attempts. Try again in $remaining minute(s)."]);
+            exit();
+        }
+
+        if (password_verify($data->password, $user['password_hash'])) {
+            $stmt = $conn->prepare("UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE user_id = ?");
+            $stmt->execute([$user['id']]);
+
+            unset($user['password_hash'], $user['failed_login_attempts'], $user['locked_until']);
+            echo json_encode($user);
+        } else {
+            $attempts = $user['failed_login_attempts'] + 1;
+            $locked_until = NULL;
+            if ($attempts >= 5) {
+                $lockout_mins = floor($attempts / 5) * 5;
+                $locked_until = date('Y-m-d H:i:s', time() + ($lockout_mins * 60));
+            }
+            $stmt = $conn->prepare("UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE user_id = ?");
+            $stmt->execute([$attempts, $locked_until, $user['id']]);
+            echo json_encode(["error" => "Invalid email or password."]);
+        }
     } else {
         echo json_encode(["error" => "Invalid email or password."]);
+    }
+    exit();
+}
+
+if ($method === 'POST' && $action === 'reset_password') {
+    $data = json_decode(file_get_contents("php://input"));
+    if (!$data || !isset($data->email, $data->password)) {
+        echo json_encode(["error" => "Invalid payload"]);
+        exit();
+    }
+
+    if (strlen($data->password) < 6) {
+        echo json_encode(["error" => "Password must be at least 6 characters."]);
+        exit();
+    }
+
+    $hashedPassword = password_hash($data->password, PASSWORD_BCRYPT);
+    $stmt = $conn->prepare("UPDATE users SET password_hash = ?, failed_login_attempts = 0, locked_until = NULL WHERE email = ?");
+    $stmt->execute([$hashedPassword, $data->email]);
+
+    if ($stmt->rowCount() > 0) {
+        echo json_encode(["success" => true, "message" => "Password updated successfully"]);
+    } else {
+        echo json_encode(["error" => "User not found or password is the same."]);
     }
     exit();
 }
@@ -239,6 +283,7 @@ if ($method === 'POST' && $action === 'create_ride') {
     $end_location = $data->end_location ?? '';
     $start_time = $data->start_time ?? null;
     $model = $data->model ?? 'Standard Car';
+    $fuel_type = $data->fuel_type ?? 'Petrol';
     $mileage = floatval($data->mileage ?? 15.0);
     $capacity = intval($data->capacity ?? 4);
 
@@ -255,15 +300,15 @@ if ($method === 'POST' && $action === 'create_ride') {
         $cost_per_seat = round(($totalFuel * 96.72) / $capacity);
     }
 
-    $stmt = $conn->prepare("SELECT vehicle_id FROM vehicles WHERE owner_id = ? AND model = ?");
-    $stmt->execute([$driver_id, $model]);
+    $stmt = $conn->prepare("SELECT vehicle_id FROM vehicles WHERE owner_id = ? AND model = ? AND fuel_type = ?");
+    $stmt->execute([$driver_id, $model, $fuel_type]);
     $vehicle = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($vehicle) {
         $vehicle_id = $vehicle['vehicle_id'];
     } else {
-        $stmt = $conn->prepare("INSERT INTO vehicles (owner_id, model, mileage, capacity) VALUES (?, ?, ?, ?)");
-        $stmt->execute([$driver_id, $model, $mileage, $capacity]);
+        $stmt = $conn->prepare("INSERT INTO vehicles (owner_id, model, mileage, capacity, fuel_type) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$driver_id, $model, $mileage, $capacity, $fuel_type]);
         $vehicle_id = $conn->lastInsertId();
     }
 

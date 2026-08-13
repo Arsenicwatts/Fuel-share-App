@@ -245,34 +245,101 @@ def scrape_goodreturns_price(slug):
         pass
     return None
 
-def get_fuel_price(location_str="vadodara"):
-    """Fetches real-time petrol price with 12-hour local caching & multi-source scrapers"""
+def scrape_mypetrolprice(slug, fuel_type):
+    """Tertiary Scraper: MyPetrolPrice for specific fuel types"""
+    # Specifically targeted Vadodara as per user request, but can be expanded
+    if slug != "vadodara":
+        # Fallback to general URL structure if needed, though ID 53 is Vadodara
+        # MyPetrolPrice uses numeric IDs for cities, so it's hard to map without a DB.
+        # We'll just try the Vadodara one for Vadodara, and maybe others won't work,
+        # but GoodReturns/DriveSpark will act as fallback.
+        if slug == "ahmedabad":
+            url = "https://www.mypetrolprice.com/4/Fuel-prices-in-Ahmedabad"
+        elif slug == "mumbai":
+            url = "https://www.mypetrolprice.com/5/Fuel-prices-in-Mumbai"
+        elif slug == "delhi" or slug == "new-delhi":
+            url = "https://www.mypetrolprice.com/2/Fuel-prices-in-Delhi"
+        else:
+            url = f"https://www.mypetrolprice.com/53/Fuel-prices-in-Vadodara" # Default to Vadodara if unknown to test
+    else:
+        url = "https://www.mypetrolprice.com/53/Fuel-prices-in-Vadodara"
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    }
+    try:
+        res = requests.get(url, headers=headers, timeout=4)
+        if res.status_code == 200:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(res.text, 'html.parser')
+            # Look inside txtC divs
+            for div in soup.find_all('div', class_='txtC'):
+                text = div.get_text(separator=' ', strip=True).encode('ascii', 'ignore').decode()
+                
+                regex_pattern = ''
+                if fuel_type.lower() == 'petrol':
+                    regex_pattern = r'Petrol\s*\(.*?Currently\).*?(\d{2,3}\.\d{1,2})'
+                elif fuel_type.lower() == 'diesel':
+                    regex_pattern = r'Diesel\s*\(.*?Currently\).*?(\d{2,3}\.\d{1,2})'
+                elif fuel_type.lower() == 'cng':
+                    regex_pattern = r'CNG\s*\(.*?Currently\).*?(\d{2,3}\.\d{1,2})'
+
+                match = re.search(regex_pattern, text, re.IGNORECASE)
+                if match:
+                    val = float(match.group(1))
+                    if 40.0 <= val <= 150.0:
+                        return val
+    except Exception as e:
+        pass
+    return None
+
+def get_fuel_price(location_str="vadodara", fuel_type="petrol"):
+    """Fetches real-time fuel price with local caching & multi-source scrapers"""
     slug, city_display = extract_city_slug(location_str)
+    
+    cache_key = f"{slug}_{fuel_type.lower()}"
 
     # 1. Check local JSON cache
     cache = load_cache()
     now = time.time()
-    if slug in cache:
-        cdata = cache[slug]
+    if cache_key in cache:
+        cdata = cache[cache_key]
         if now - cdata.get("timestamp", 0) < CACHE_TTL_SECONDS:
             return cdata["price"], city_display, "cached"
 
-    # 2. Try Primary Scraper (DriveSpark)
-    price = scrape_drivespark_price(slug)
-    source = "DriveSpark Live"
+    price = None
+    source = ""
 
-    # 3. Try Secondary Scraper (GoodReturns)
-    if not price:
+    # 2. Try MyPetrolPrice (requested by user for all fuel types)
+    price = scrape_mypetrolprice(slug, fuel_type)
+    if price:
+        source = "MyPetrolPrice Live"
+
+    # 3. Try Primary Scraper (DriveSpark - usually Petrol only unless URL changed)
+    if not price and fuel_type.lower() == 'petrol':
+        price = scrape_drivespark_price(slug)
+        if price:
+            source = "DriveSpark Live"
+
+    # 4. Try Secondary Scraper (GoodReturns)
+    if not price and fuel_type.lower() == 'petrol':
         price = scrape_goodreturns_price(slug)
-        source = "GoodReturns Live"
+        if price:
+            source = "GoodReturns Live"
 
-    # 4. Benchmark Fallback
+    # 5. Benchmark Fallback
     if not price:
-        price = CITY_BENCHMARK_PRICES.get(slug, 94.28)
+        # Benchmark for petrol
+        if fuel_type.lower() == 'petrol':
+            price = CITY_BENCHMARK_PRICES.get(slug, 94.28)
+        elif fuel_type.lower() == 'diesel':
+            price = CITY_BENCHMARK_PRICES.get(slug, 90.00)
+        elif fuel_type.lower() == 'cng':
+            price = 85.00
         source = "State Benchmark"
 
-    # 5. Save to local JSON cache
-    cache[slug] = {
+    # 6. Save to local JSON cache
+    cache[cache_key] = {
         "price": price,
         "source": source,
         "city": city_display,
@@ -331,6 +398,7 @@ if __name__ == "__main__":
     parser.add_argument('--capacity', type=int, required=False, default=4, help="Total seating capacity")
     parser.add_argument('--city', type=str, required=False, default="vadodara", help="City name or full address string")
     parser.add_argument('--location', type=str, required=False, default="", help="Full location string for city extraction")
+    parser.add_argument('--fuel_type', type=str, required=False, default="Petrol", help="Fuel type (Petrol, Diesel, CNG)")
     args = parser.parse_args()
 
     loc = args.location if args.location else args.city
@@ -344,7 +412,7 @@ if __name__ == "__main__":
     elif final_mileage <= 0.0:
         final_mileage = 15.0
 
-    price, city_display, source = get_fuel_price(loc)
+    price, city_display, source = get_fuel_price(loc, args.fuel_type)
     cost = calculate_fair_price(args.distance, final_mileage, price, args.capacity)
 
     print(json.dumps({
@@ -353,6 +421,7 @@ if __name__ == "__main__":
         "location": loc,
         "source": source,
         "vehicle_model": args.model if args.model else "Standard Car",
+        "fuel_type": args.fuel_type,
         "mileage_used": final_mileage,
         "mileage_scraped": scraped_mileage,
         "live_fuel_price": price,

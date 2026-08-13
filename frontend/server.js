@@ -4,7 +4,7 @@ import { exec } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
-import { sendVerificationEmail } from './mailer.js';
+import { sendVerificationEmail, sendSupportEmail, sendPasswordResetEmail } from './mailer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,6 +55,33 @@ app.post('/api/send-otp', async (req, res) => {
   }
 });
 
+// ======================== SEND RESET OTP ========================
+app.post('/api/send-reset-otp', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ status: "error", message: "Missing email payload." });
+  }
+
+  // Generate secure 6-digit OTP on the server
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Store with expiry
+  otpStore.set(email, {
+    otp,
+    expiresAt: Date.now() + OTP_EXPIRY_MS
+  });
+
+  try {
+    await sendPasswordResetEmail(email, otp);
+    res.json({ status: "success", message: "Password reset OTP sent." });
+  } catch (e) {
+    console.error("Nodemailer Transaction Error:", e);
+    otpStore.delete(email);
+    res.status(500).json({ status: "error", message: "Failed to connect to SMTP server." });
+  }
+});
+
 // ======================== VERIFY OTP ========================
 // Validates the user-submitted OTP against the server-stored one
 app.post('/api/verify-otp', (req, res) => {
@@ -91,10 +118,12 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 // ======================== LIVE FUEL PRICE API ========================
 app.get('/api/fuel-price', (req, res) => {
   const location = req.query.location || req.query.city || 'vadodara';
+  const fuel_type = req.query.fuel_type || 'Petrol';
 
   const scriptPath = path.join(__dirname, '..', 'backend', 'scripts', 'fuel_engine.py');
   const safeLoc = location.replace(/"/g, '\\"');
-  const cmd = `python "${scriptPath}" --location "${safeLoc}" --distance 10 --capacity 4`;
+  const safeFuel = fuel_type.replace(/"/g, '\\"');
+  const cmd = `python "${scriptPath}" --location "${safeLoc}" --fuel_type "${safeFuel}" --distance 10 --capacity 4`;
 
   exec(cmd, (error, stdout) => {
     if (error || !stdout) {
@@ -116,13 +145,14 @@ app.get('/api/fuel-price', (req, res) => {
 // ======================== PYTHON ENGINE BRIDGE ========================
 // API Endpoint to bridge the Frontend to the Python Intelligence Engine
 app.post('/api/calculate', (req, res) => {
-  const { distance = 10, mileage = 0, model = '', capacity = 4, city = 'vadodara' } = req.body;
+  const { distance = 10, mileage = 0, model = '', capacity = 4, city = 'vadodara', fuel_type = 'Petrol' } = req.body;
 
   const scriptPath = path.join(__dirname, '..', 'backend', 'scripts', 'fuel_engine.py');
   const safeModel = model ? model.replace(/"/g, '\\"') : "Unknown";
   const safeCity = city ? city.replace(/"/g, '\\"') : "vadodara";
+  const safeFuel = fuel_type ? fuel_type.replace(/"/g, '\\"') : "Petrol";
 
-  const cmd = `python "${scriptPath}" --distance ${distance} --mileage ${mileage} --model "${safeModel}" --capacity ${capacity} --city "${safeCity}"`;
+  const cmd = `python "${scriptPath}" --distance ${distance} --mileage ${mileage} --model "${safeModel}" --capacity ${capacity} --city "${safeCity}" --fuel_type "${safeFuel}"`;
 
   console.log(`🚀 Executing Fuel Engine: ${cmd}`);
 
@@ -141,6 +171,23 @@ app.post('/api/calculate', (req, res) => {
       res.status(500).json({ status: "error", message: "Failed to parse API" });
     }
   });
+});
+
+// ======================== SUPPORT CONTACT FORM ========================
+app.post('/api/support', async (req, res) => {
+  const { name, email, category, message } = req.body;
+
+  if (!name || !email || !category || !message) {
+    return res.status(400).json({ status: 'error', message: 'All fields are required.' });
+  }
+
+  try {
+    await sendSupportEmail({ name, email, category, message });
+    res.json({ status: 'success', message: 'Support message sent successfully.' });
+  } catch (e) {
+    console.error('Support Email Error:', e);
+    res.status(500).json({ status: 'error', message: 'Failed to send support email. Check SMTP config.' });
+  }
 });
 
 app.listen(5000, () => {

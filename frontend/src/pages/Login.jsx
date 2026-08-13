@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, CheckCircle, Leaf, Shield, AlertCircle, KeyRound, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, CheckCircle, Leaf, Shield, AlertCircle, KeyRound, Loader2, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function Login() {
   const { login, API_URL, NODE_URL } = useApp();
-  
   const [isSignup, setIsSignup] = useState(() => {
     try {
       return sessionStorage.getItem('fuelshare_signup_mode') === 'true';
     } catch (e) { return false; }
   });
+  const [isForgot, setIsForgot] = useState(false);
 
   const [showOtp, setShowOtp] = useState(() => {
     try {
@@ -31,7 +31,6 @@ export default function Login() {
       return { name: '', email: '', password: '' };
     }
   });
-
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -52,13 +51,12 @@ export default function Login() {
     } catch (e) {}
   };
 
-  // 1. Initial Signup Button Click — Tells the server to generate and send OTP
+  // 1. Initial Signup Button Click
   const initiateSignup = async () => {
     setIsLoading(true);
     setError('');
 
     try {
-      // Server generates the OTP and emails it — we never see the code
       const res = await fetch(`${NODE_URL}/api/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,17 +82,86 @@ export default function Login() {
     }
   };
 
-  // 2. Final Submit (Evaluates Login OR Verified OTP Signup)
+  // 1.5 Initial Forgot Password Button Click
+  const initiateForgot = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch(`${NODE_URL}/api/send-reset-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email })
+      });
+      const data = await res.json();
+
+      if (data.status === 'error') {
+        setError(data.message);
+      } else {
+        setShowOtp(true);
+      }
+    } catch (err) {
+      setError("Failed to communicate with the mail server.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 2. Final Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
-    // If User is signing up but hasn't received email yet
+    // --- Forgot Password Flow ---
+    if (isForgot) {
+      if (!showOtp) {
+        return initiateForgot();
+      } else {
+        setIsLoading(true);
+        try {
+          const verifyRes = await fetch(`${NODE_URL}/api/verify-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: formData.email, otp: userOtp })
+          });
+          const verifyData = await verifyRes.json();
+
+          if (verifyData.status === 'error') {
+            setIsLoading(false);
+            return setError(verifyData.message);
+          }
+
+          const resetRes = await fetch(`${API_URL}?action=reset_password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: formData.email, password: formData.password })
+          });
+          const resetData = await resetRes.json();
+
+          if (resetData.error) {
+            setIsLoading(false);
+            return setError(resetData.error);
+          }
+
+          setIsForgot(false);
+          setShowOtp(false);
+          setUserOtp('');
+          setFormData({ ...formData, password: '' });
+          setError('Password reset successfully. You can now login.');
+          setIsLoading(false);
+          return;
+        } catch (err) {
+          setIsLoading(false);
+          return setError("Failed to reset password.");
+        }
+      }
+    }
+
+    // --- Signup Flow ---
     if (isSignup && !showOtp) {
       return initiateSignup();
     }
 
-    // If User is signing up and the OTP input is shown, verify the code server-side
     if (isSignup && showOtp) {
       setIsLoading(true);
       try {
@@ -115,7 +182,7 @@ export default function Login() {
       }
     }
 
-    // Standard PHP verification/record insertion flow
+    // --- Standard PHP verification/record insertion flow (Login & verified Signup) ---
     if (!isLoading) setIsLoading(true);
     try {
       const endpoint = isSignup ? 'signup' : 'login';
@@ -154,7 +221,8 @@ export default function Login() {
 
   const handleToggleMode = (signupMode) => {
     setIsSignup(signupMode);
-    setShowOtp(false); // Reset OTP sequence if they back out of signup
+    setIsForgot(false);
+    setShowOtp(false);
     setError('');
     setUserOtp('');
     try {
@@ -207,9 +275,11 @@ export default function Login() {
           <div className="bg-gradient-to-br from-emerald-600 to-teal-700 p-8 text-white relative transition-all duration-300">
             {!showOtp ? (
               <>
-                <h2 className="text-3xl font-bold mb-2 relative z-10">{isSignup ? 'Create Account' : 'Welcome Back'}</h2>
+                <h2 className="text-3xl font-bold mb-2 relative z-10">
+                  {isForgot ? 'Reset Password' : isSignup ? 'Create Account' : 'Welcome Back'}
+                </h2>
                 <p className="text-emerald-50 relative z-10 font-medium">
-                  {isSignup ? '@college.edu required for safety.' : 'Login to find your next ride.'}
+                  {isForgot ? 'Enter your email to get a reset code.' : isSignup ? '@college.edu required for safety.' : 'Login to find your next ride.'}
                 </p>
               </>
             ) : (
@@ -223,7 +293,7 @@ export default function Login() {
           </div>
 
           <div className="p-8">
-            {!showOtp && (
+            {!showOtp && !isForgot && (
               <div className="flex justify-center mb-6 bg-slate-100 dark:bg-slate-700/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-600">
                 <button
                   type="button"
@@ -242,9 +312,19 @@ export default function Login() {
               </div>
             )}
 
+            {!showOtp && isForgot && (
+              <button
+                type="button"
+                onClick={() => { setIsForgot(false); setError(''); }}
+                className="mb-6 text-sm text-emerald-600 dark:text-emerald-400 font-bold flex items-center hover:underline"
+              >
+                <ArrowLeft size={16} className="mr-1" /> Back to Login
+              </button>
+            )}
+
             {error && (
-              <div className="mb-6 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 p-3 rounded-xl flex items-center gap-3 text-sm font-semibold border border-red-200 dark:border-red-800 animate-in fade-in">
-                <AlertCircle size={18} className="shrink-0" />
+              <div className={`mb-6 p-3 rounded-xl flex items-center gap-3 text-sm font-semibold border animate-in fade-in ${error.includes('successfully') ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800'}`}>
+                {error.includes('successfully') ? <CheckCircle size={18} className="shrink-0" /> : <AlertCircle size={18} className="shrink-0" />}
                 <p>{error}</p>
               </div>
             )}
@@ -252,7 +332,7 @@ export default function Login() {
             <form onSubmit={handleSubmit} className="space-y-5">
 
               {!showOtp ? (
-                // Standard Login/Signup Fields
+                // Standard Login/Signup/Forgot Fields
                 <>
                   <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isSignup ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0 hidden'}`}>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">Full Name</label>
@@ -270,44 +350,68 @@ export default function Login() {
                     </div>
                   </div>
 
-                  <div>
+                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${!isForgot ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0 hidden'}`}>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">Password</label>
                     <div className="relative">
                       <Lock size={18} className="absolute left-3 top-3.5 text-slate-500" />
-                      <input type="password" name="password" onChange={handleChange} value={formData.password} className="input-field pl-10" placeholder="••••••••" required />
+                      <input type="password" name="password" onChange={handleChange} value={formData.password} className="input-field pl-10" placeholder="••••••••" required={!isForgot} />
                     </div>
                   </div>
 
-                  {/* Remember Me Checkbox */}
-                  <div className="flex items-center justify-between pt-1">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
-                      />
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Remember Me (24h)</span>
-                    </label>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">Clears on tab close if unchecked</span>
-                  </div>
+                  {/* Remember Me Checkbox & Forgot Password */}
+                  {!isSignup && !isForgot && (
+                    <div className="flex items-center justify-between pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={rememberMe}
+                          onChange={(e) => setRememberMe(e.target.checked)}
+                          className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer"
+                        />
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Remember Me (24h)</span>
+                      </label>
+                      <button type="button" onClick={() => { setIsForgot(true); setError(''); setFormData({...formData, password: ''}); }} className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline">
+                        Forgot Password?
+                      </button>
+                    </div>
+                  )}
                 </>
               ) : (
                 // OTP Challenge Phase
-                <div className="animate-in fade-in zoom-in-95 duration-300">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">6-Digit Verification Code</label>
-                  <div className="relative">
-                    <KeyRound size={18} className="absolute left-3 top-3.5 text-emerald-600" />
-                    <input
-                      type="text"
-                      maxLength="6"
-                      value={userOtp}
-                      onChange={handleOtpChange}
-                      className="input-field pl-10 bg-emerald-50/50 border-emerald-200 text-lg tracking-widest font-bold focus:ring-emerald-300 text-center"
-                      placeholder="000000"
-                      required
-                    />
+                <div className="animate-in fade-in zoom-in-95 duration-300 space-y-5">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">6-Digit Verification Code</label>
+                    <div className="relative">
+                      <KeyRound size={18} className="absolute left-3 top-3.5 text-emerald-600" />
+                      <input
+                        type="text"
+                        maxLength="6"
+                        value={userOtp}
+                        onChange={handleOtpChange}
+                        className="input-field pl-10 bg-emerald-50/50 border-emerald-200 text-lg tracking-widest font-bold focus:ring-emerald-300 text-center"
+                        placeholder="000000"
+                        required
+                      />
+                    </div>
                   </div>
+
+                  {isForgot && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 uppercase tracking-wide">New Password</label>
+                      <div className="relative">
+                        <Lock size={18} className="absolute left-3 top-3.5 text-emerald-600" />
+                        <input
+                          type="password"
+                          name="password"
+                          value={formData.password}
+                          onChange={handleChange}
+                          className="input-field pl-10 bg-emerald-50/50 border-emerald-200 font-bold focus:ring-emerald-300"
+                          placeholder="••••••••"
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -320,11 +424,15 @@ export default function Login() {
                   <Loader2 className="animate-spin mr-2" size={20} />
                 ) : null}
 
-                {!isSignup
-                  ? 'Secure Login'
-                  : showOtp
-                    ? 'Verify & Complete Registration'
-                    : 'Dispatch Verification Code'}
+                {isForgot
+                  ? showOtp
+                    ? 'Reset Password'
+                    : 'Send Reset Code'
+                  : !isSignup
+                    ? 'Secure Login'
+                    : showOtp
+                      ? 'Verify & Complete Registration'
+                      : 'Dispatch Verification Code'}
               </button>
 
               {showOtp && (

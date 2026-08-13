@@ -9,8 +9,12 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL,
     phone VARCHAR(20) DEFAULT NULL,
     bio TEXT DEFAULT NULL,
+    upi_id VARCHAR(100) DEFAULT NULL,
+    department VARCHAR(100) DEFAULT NULL,
     saved_places LONGTEXT DEFAULT NULL,
     is_driver BOOLEAN DEFAULT FALSE,
+    failed_login_attempts INT DEFAULT 0,
+    locked_until DATETIME DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -21,7 +25,7 @@ CREATE TABLE vehicles (
     model VARCHAR(100) NOT NULL,
     mileage FLOAT NOT NULL, -- km/l
     capacity INT NOT NULL,
-    fuel_type ENUM('Petrol', 'Diesel', 'Electric') DEFAULT 'Petrol',
+    fuel_type ENUM('Petrol', 'Diesel', 'Electric', 'CNG') DEFAULT 'Petrol',
     FOREIGN KEY (owner_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 

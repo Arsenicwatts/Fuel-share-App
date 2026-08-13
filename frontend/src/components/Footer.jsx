@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Fuel } from 'lucide-react';
 
 export default function Footer() {
@@ -12,10 +13,10 @@ export default function Footer() {
           </div>
 
           <div className="flex flex-wrap gap-6 text-sm font-medium text-slate-500 dark:text-slate-400">
-            <a href="#" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">University Partners</a>
-            <a href="#" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Support</a>
+            <Link to="/terms" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Terms of Service</Link>
+            <Link to="/privacy" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Privacy Policy</Link>
+            <Link to="/university-partners" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">University Partners</Link>
+            <Link to="/support" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Support</Link>
           </div>
         </div>
 
