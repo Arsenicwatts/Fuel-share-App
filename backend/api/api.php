@@ -33,6 +33,18 @@ try {
     }
 
     try {
+        $conn->query("SELECT failed_login_attempts FROM users LIMIT 1");
+    } catch (PDOException $ex) {
+        $conn->exec("ALTER TABLE users ADD COLUMN failed_login_attempts INT DEFAULT 0, ADD COLUMN locked_until DATETIME DEFAULT NULL");
+    }
+
+    try {
+        $conn->query("SELECT fuel_type FROM vehicles LIMIT 1");
+    } catch (PDOException $ex) {
+        $conn->exec("ALTER TABLE vehicles ADD COLUMN fuel_type VARCHAR(50) DEFAULT 'Petrol'");
+    }
+
+    try {
         $conn->query("SELECT notification_id FROM notifications LIMIT 1");
     } catch (PDOException $ex) {
         $conn->exec("
@@ -517,34 +529,6 @@ if ($method === 'POST' && $action === 'mark_notifications_read') {
     $stmt = $conn->prepare("UPDATE notifications SET is_read = TRUE WHERE user_id = ?");
     $stmt->execute([$data->user_id]);
     echo json_encode(["success" => true]);
-    exit();
-}
-
-// ======================== MESSAGING ========================
-
-if ($method === 'POST' && $action === 'send_message') {
-    $data = json_decode(file_get_contents("php://input"));
-    if (!$data || !isset($data->ride_id, $data->passenger_email, $data->sender_id, $data->text)) {
-        echo json_encode(["error" => "Missing required fields."]);
-        exit();
-    }
-
-    $reqStmt = $conn->prepare("
-        SELECT req.request_id 
-        FROM ride_requests req
-        JOIN users u ON req.passenger_id = u.user_id
-        WHERE req.ride_id = ? AND u.email = ?
-    ");
-    $reqStmt->execute([$data->ride_id, $data->passenger_email]);
-    $req = $reqStmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($req) {
-        $stmt = $conn->prepare("INSERT INTO messages (request_id, sender_id, text) VALUES (?, ?, ?)");
-        $stmt->execute([$req['request_id'], $data->sender_id, $data->text]);
-        echo json_encode(["success" => true]);
-    } else {
-        echo json_encode(["error" => "Request not found"]);
-    }
     exit();
 }
 
